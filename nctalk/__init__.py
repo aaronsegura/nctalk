@@ -1,18 +1,11 @@
 """NextCloud Talk client library."""
 import importlib.metadata
-import xmltodict
 
 from nextcloud import NextCloud
 
 from nctalk.conversations import ConversationAPI, Conversation
 
 __version__ = importlib.metadata.version('nctalk')
-
-
-class NextCloudTalkException(Exception):
-    """Generic Exception."""
-
-    pass
 
 
 class NextCloudTalk(object):
@@ -23,9 +16,9 @@ class NextCloudTalk(object):
         self.endpoint = endpoint
         self.client = NextCloud(endpoint=endpoint, user=user, password=password)
 
-        """get_user() in order to make I'm not sure exactly why this
-        works, but if you don't get_user() before making session requests
-        you get {"message":"CSRF check failed"} errors."""
+        """get_user() in order to make this work.  If you don't get_user()
+        before making session requests you get {"message":"CSRF check failed"}
+        errors."""
         self.user_data = self.client.get_user()
 
         self.conversation_api = ConversationAPI(self)
@@ -58,18 +51,3 @@ class NextCloudTalk(object):
         """Get a specific conversation."""
         return self.conversation_api.get(
             room_token=room_token)
-
-    def conversation_rename(
-            self,
-            room_token: str,
-            room_name: str):
-        """Rename the conversation matching room_token."""
-        room = self.conversation_get(room_token=room_token)
-        return room.rename(room_name)
-
-    def conversation_delete(
-            self,
-            room_token: str):
-        """Delete the conversation matchin room_token."""
-        room = self.conversation_get(room_token=room_token)
-        return room.delete()

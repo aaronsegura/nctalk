@@ -11,6 +11,7 @@ __pycache__/
 
 # Temp files
 *.tmp
+temp.py
 
 # Distribution / packaging
 .Python
