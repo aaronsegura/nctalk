@@ -13,41 +13,39 @@ class NextCloudTalkException(Exception):
 
 
 class NextCloudTalkBadRequest(NextCloudTalkException):
-    """User made a bad request."""
+    """400 - User made a bad request."""
 
     pass
 
 
 class NextCloudTalkUnauthorized(NextCloudTalkException):
-    """User made a bad request."""
+    """401 - User account is not authorized."""
 
     pass
 
 
 class NextCloudTalkForbidden(NextCloudTalkException):
-    """User made a bad request."""
+    """403 - Forbidden action due to permissions."""
 
     pass
 
 
 class NextCloudTalkNotFound(NextCloudTalkException):
-    """User made a bad request."""
+    """404 - Object was not found."""
+
+    pass
+
+
+class NextCloudTalkPreconditionFailed(NextCloudTalkException):
+    """412 - User tried to join chat room without going to lobby."""
 
     pass
 
 
 class NextCloudTalkAPI(object):
-    """Base class for all API objects.
-
-    * ConversationAPI
-    * ChatAPI
-    * ParticipantsAPI
-    * WebinarAPI
-    * etc...
-    """
+    """Base class for all API objects."""
 
     def __init__(self, nextcloud_client: NextCloud, api_endpoint: str):
-        """Initialize the Conversation API."""
         self.api_endpoint = api_endpoint
 
         self.endpoint = nextcloud_client.endpoint + self.api_endpoint
@@ -84,6 +82,8 @@ class NextCloudTalkAPI(object):
                     raise NextCloudTalkForbidden(exception_string)
                 case '404':
                     raise NextCloudTalkNotFound(exception_string)
+                case '412':
+                    raise NextCloudTalkPreconditionFailed(exception_string)
                 case _:
                     raise NextCloudTalkException(exception_string)
 

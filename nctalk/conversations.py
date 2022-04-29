@@ -29,19 +29,6 @@ class NotificationLevel(Enum):
     never_notify = 3
 
 
-class Permissions(IntFlag):
-    """Enumeration for conversation permissions."""
-
-    default = 0
-    custom = 1
-    start_call = 2
-    join_call = 4
-    can_ignore_lobby = 8
-    can_publish_audio = 16
-    can_publish_video = 32
-    can_publish_screen_sharing = 64
-
-
 class ConversationException(Exception):
     """Our own little exception class."""
 
@@ -56,24 +43,20 @@ class Conversation(object):
     """
 
     def __init__(self, data: dict, conversation_api: 'ConversationAPI'):
-        """Initialize object with data from  API."""
         self.__dict__.update(data)
         self.api = conversation_api
 
     def __repr__(self):
-        """Return representation of object."""
-        return '{}({})'.format(self.__class__.__name__, self.__dict__)
+        return f'{self.__class__.__name__}({self.__dict__})'
 
     def __str__(self):
-        """Return user-readable object string."""
-        return 'Conversation({token}, {type}, {displayName})'.format(**self.__dict__)
+        return f'Conversation({self.token}, {self.type}, {self.displayName})'
 
     def rename(self, room_name: str):
         """Rename the room.
 
         Method: PUT
         Endpoint: /room/{token}
-        Data:
 
         field     type    Description
         roomName  string  New name for the conversation (1-200 characters)
@@ -118,7 +101,6 @@ class Conversation(object):
         Required capability: room-description
         Method: PUT
         Endpoint: /room/{token}/description
-        Data:
 
         field       type    Description
         description string  New description for the conversation
@@ -220,7 +202,6 @@ class ConversationAPI(NextCloudTalkAPI):
 
         Method: GET
         Endpoint: /room
-        Data:
 
         field           type Description
         noStatusUpdate  int  Whether the "online" user status of the current
@@ -281,7 +262,6 @@ class ConversationAPI(NextCloudTalkAPI):
         Endpoint: /room/{token}
 
         Response:
-
         Status code:
 
         200 OK
