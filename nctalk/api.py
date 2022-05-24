@@ -1,6 +1,7 @@
 """Base API interface."""
 
 import xmltodict
+import json
 
 from nextcloud import NextCloud
 from urllib.parse import urlencode
@@ -65,7 +66,8 @@ class NextCloudTalkAPI(object):
                 data=data)
 
         if request.ok:
-            request_data = xmltodict.parse(request.content)
+            # Convert OrderedDict from xmltodict.parse to regular dict.
+            request_data = json.loads(json.dumps(xmltodict.parse(request.content))) 
             try:
                 ret = request_data['ocs']['data']
             except KeyError:

@@ -1,15 +1,14 @@
 """Conversation API."""
 
-import xmltodict
-
 from typing import Union
 from collections import OrderedDict
-from enum import IntFlag, Enum
+from enum import Enum
 
 from nextcloud import NextCloud
 
 from nctalk.api import NextCloudTalkAPI, NextCloudTalkException
-
+from participants import Participant
+from chats import Chat, ChatAPI
 
 class ConversationType(Enum):
     """Conversation Types."""
@@ -45,6 +44,11 @@ class Conversation(object):
     def __init__(self, data: dict, conversation_api: 'ConversationAPI'):
         self.__dict__.update(data)
         self.api = conversation_api
+
+        # Conversations and Chats are two different things 
+        # according to the API /shrug
+        self.chat_api = ChatAPI(self.api.nextcloud_client)
+        self.chat = Chat(self.token, self.chat_api)
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__})'
@@ -176,11 +180,60 @@ class Conversation(object):
             method='DELETE',
             sub=f'/room/{self.token}/participants/self')
 
-    def participants(self, include_status: bool = False):
+    def invite(self, invitee: str, source: str = 'users') -> Union[int, None]:
+        """Invite a user to this room.
+
+        Method: POST
+        Endpoint: /room/{token}/participants
+
+        newParticipant	string	User, group, email or circle to add
+        source	        string	Source of the participant(s) as 
+                                returned by the autocomplete suggestion 
+                                endpoint (default is users)
+        Status code:
+        200 OK
+        400 Bad Request 
+            When the source type is unknown, currently users, groups, emails 
+            are supported. circles are supported with circles-support capability
+        400 Bad Request 
+            When the conversation is a one-to-one conversation or a conversation
+            to request a password for a share
+        403 Forbidden - When the current user is not a moderator or owner
+        404 Not Found - When the conversation could not be found for the participant
+        404 Not Found - When the user or group to add could not be found
+
+        Returns:
+        type	int     In case the conversation type changed, the new value is 
+                        returned
+        """
+        result = self.api.query(
+            sub=f'/room/{self.token}/participants',
+            data={'newParticipant': invitee, 'source': source})
+
+        print(result)
+        
+    @property
+    def participants(self, include_status: bool = False) -> list:
         """Return list of participants."""
-        return self.api.query(
+        participants = self.api.query(
             sub=f'/room/{self.token}/participants',
             data={'includeStatus': include_status})
+
+        result_type = type(participants['element'])
+ 
+        if result_type == dict:
+            ret = [Participant(participants['element'])]
+        elif result_type == list:
+            ret = [Participant(user) for user in participants['element']]
+        else:
+            raise NextCloudTalkException(f'Unknown Return type for participants: {result_type}')
+
+        return ret
+
+    def send(self, **kwargs):
+        """Send a message to a conversation"""
+        return self.chat.say(**kwargs)
+
 
 
 class ConversationAPI(NextCloudTalkAPI):
@@ -192,6 +245,7 @@ class ConversationAPI(NextCloudTalkAPI):
     def __init__(self, nextcloud_client: NextCloud):
         """Initialize the Conversation API."""
         self.api_endpoint = '/ocs/v2.php/apps/spreed/api/v4'
+        self.nextcloud_client = nextcloud_client
         super().__init__(nextcloud_client, api_endpoint=self.api_endpoint)
 
     def list(

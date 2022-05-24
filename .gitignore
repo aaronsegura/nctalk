@@ -6,6 +6,9 @@ __pycache__/
 # Sublime Text project
 *.sublime-*
 
+# VSCode
+.vscode
+
 # C extensions
 *.so
 
