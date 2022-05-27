@@ -1,41 +1,17 @@
-"""Conversation API."""
+"""Conversations API."""
 
-from typing import Union
-from collections import OrderedDict
-from enum import Enum
+from typing import Union, List
 
 from nextcloud import NextCloud
 
+from constants import ConversationType, NotificationLevel, ListableScope
 from nctalk.api import NextCloudTalkAPI, NextCloudTalkException
 from participants import Participant
 from chats import Chat, ChatAPI
 
-class ConversationType(Enum):
-    """Conversation Types."""
-
-    one_to_one = 1
-    group = 2
-    public = 3
-    changelog = 4
-
-
-class NotificationLevel(Enum):
-    """Notification Levels."""
-
-    default = 0
-    always_notify = 1
-    notify_on_mention = 2
-    never_notify = 3
-
-
-class ConversationException(Exception):
-    """Our own little exception class."""
-
-    pass
-
 
 class Conversation(object):
-    """Represents a NextCloud Talk Conversation.
+    """A NextCloud Talk Conversation.
 
     Conversation dictionary:
     https://nextcloud-talk.readthedocs.io/en/latest/conversation/#get-user-s-conversations
@@ -54,7 +30,8 @@ class Conversation(object):
         return f'{self.__class__.__name__}({self.__dict__})'
 
     def __str__(self):
-        return f'Conversation({self.token}, {self.type}, {self.displayName})'
+        return f'{self.__class__.__name__}({self.token}, ' \
+               f'{ConversationType(int(self.type)).name}, {self.displayName})'
 
     def rename(self, room_name: str):
         """Rename the room.
@@ -65,9 +42,7 @@ class Conversation(object):
         field     type    Description
         roomName  string  New name for the conversation (1-200 characters)
 
-        Response:
-        Status code:
-        200 OK
+        Exceptions:
         400 Bad Request When the name is too long or empty
         400 Bad Request When the conversation is a one to one conversation
         403 Forbidden When the current user is not a moderator/owner
@@ -85,10 +60,7 @@ class Conversation(object):
         Method: DELETE
         Endpoint: /room/{token}
 
-        Response:
-
-        Status code:
-        200 OK
+        Exceptions:
         400 Bad Request When the conversation is a one-to-one conversation
             (Use Remove yourself from a conversation instead)
         403 Forbidden When the current user is not a moderator/owner
@@ -109,9 +81,7 @@ class Conversation(object):
         field       type    Description
         description string  New description for the conversation
 
-        Response:
-        Status code:
-        200 OK
+        Exceptions:
         400 Bad Request When the description is too long
         400 Bad Request When the conversation is a one to one conversation
         403 Forbidden When the current user is not a moderator/owner
@@ -161,18 +131,18 @@ class Conversation(object):
             method='DELETE',
             sub=f'/room/{self.token}/favorites')
 
-    def set_notification_level(self, notification_level: Union[int, str]):
+    def set_notification_level(self, notification_level: str):
         """Set notification level for room.
 
-        See NOTIFICATION_LEVEL constants above.
+        See constants.NotificationLevel
         """
-        if notification_level is str:
-            notification_level = NotificationLevel.notification_level
-
+        data = {
+            'level':  NotificationLevel[notification_level].value
+        }
         return self.api.query(
             method='POST',
             sub=f'/room/{self.token}/notify',
-            data={'level': notification_level})
+            data=data)
 
     def leave(self):
         """Leave this room."""
@@ -190,8 +160,7 @@ class Conversation(object):
         source	        string	Source of the participant(s) as 
                                 returned by the autocomplete suggestion 
                                 endpoint (default is users)
-        Status code:
-        200 OK
+        Exceptions:
         400 Bad Request 
             When the source type is unknown, currently users, groups, emails 
             are supported. circles are supported with circles-support capability
@@ -206,36 +175,43 @@ class Conversation(object):
         type	int     In case the conversation type changed, the new value is 
                         returned
         """
-        result = self.api.query(
+        return self.api.query(
             sub=f'/room/{self.token}/participants',
             data={'newParticipant': invitee, 'source': source})
-
-        print(result)
         
     @property
-    def participants(self, include_status: bool = False) -> list:
+    def participants(self, include_status: bool = False) -> List[Participant]:
         """Return list of participants."""
         participants = self.api.query(
             sub=f'/room/{self.token}/participants',
             data={'includeStatus': include_status})
 
-        result_type = type(participants['element'])
- 
-        if result_type == dict:
-            ret = [Participant(participants['element'])]
-        elif result_type == list:
-            ret = [Participant(user) for user in participants['element']]
+        result = participants['element']
+        if isinstance(result, dict):
+            ret = [Participant(result)]
+        elif isinstance(result, list):
+            ret = [Participant(user) for user in result]
         else:
-            raise NextCloudTalkException(f'Unknown Return type for participants: {result_type}')
+            raise NextCloudTalkException(f'Unknown Return type for participants: {type(result)}')
 
         return ret
 
     def send(self, **kwargs):
-        """Send a message to a conversation"""
-        return self.chat.say(**kwargs)
+        """Send a message to a conversation."""
+        return self.chat.send(**kwargs)
 
+    def change_listing_scope(self, scope: str) -> None:
+        """Change scope for conversation.
+        
+        Change who can see the conversation.
+        See ListableScope, above.
+        """
+        self.api.query(
+            method='PUT',
+            sub=f'/room/{self.token}/listable',
+            data={'scope': ListableScope[scope].value})
 
-
+    
 class ConversationAPI(NextCloudTalkAPI):
     """Interface to the Conversations API.
 
@@ -248,10 +224,16 @@ class ConversationAPI(NextCloudTalkAPI):
         self.nextcloud_client = nextcloud_client
         super().__init__(nextcloud_client, api_endpoint=self.api_endpoint)
 
+    def __repr__(self) -> str:
+        return f'{self.__class__.__name__}({self.nextcloud_client})'
+
+    def __str__(self) -> str:
+        return f'{self.__class__.__name__}()'
+
     def list(
             self,
             no_status_update: int = 0,
-            include_status: bool = False) -> list:
+            include_status: bool = False) -> List[Conversation]:
         """Return list of user's conversations.
 
         Method: GET
@@ -264,13 +246,8 @@ class ConversationAPI(NextCloudTalkAPI):
         includeStatus   bool Whether the user status information of all
                              one-to-one conversations should be loaded
                              (default false)
-        Response:
-        Status code:
-
-        200 OK
+        Exceptions:
         401 Unauthorized when the user is not logged in
-
-        https://nextcloud-talk.readthedocs.io/en/latest/conversation/
         """
         data = {
             'noStatusUpdate': no_status_update,
@@ -280,28 +257,22 @@ class ConversationAPI(NextCloudTalkAPI):
 
         if not request:  # Zero results
             rooms = []
-        elif type(request['element']) == OrderedDict:  # One Result
+        elif isinstance(request['element'], dict):  # One Result
             rooms = [Conversation(request['element'], self)]
-        else:  # Multiple Results
-            rooms = [
-                Conversation(x, self)
-                for x in request['element']
-            ]
+        elif isinstance(request['element'], list):  # Multiple Results
+            rooms = [Conversation(x, self) for x in request['element']]
 
         return rooms
 
     def new(
             self,
-            room_type: Union[int, str],
+            room_type: str,
             invite: str = '',
             room_name: str = '',
             source: str = '') -> Conversation:
         """Create a new conversation."""
-        if type(room_type) is str:
-            room_type = ConversationType[room_type].value
-
         data = {
-            'roomType': room_type,
+            'roomType': ConversationType[room_type].value,
             'invite': invite,
             'source': source,
             'roomName': room_name
@@ -324,3 +295,16 @@ class ConversationAPI(NextCloudTalkAPI):
         """
         room_data = self.query(sub=f'/room/{room_token}')
         return Conversation(room_data, self)
+
+    def open_conversation_list(self) -> List[Conversation]:
+        """Get list of open rooms."""
+        request = self.query(sub=f'/listed-room')
+
+        if not request:  # Zero results
+            rooms = []
+        elif isinstance(request['element'], dict):  # One Result
+            rooms = [Conversation(request['element'], self)]
+        elif isinstance(request['element'], list):  # Multiple Results
+            rooms = [Conversation(x, self) for x in request['element']]
+
+        return rooms

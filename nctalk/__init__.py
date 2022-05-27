@@ -16,9 +16,9 @@ class NextCloudTalk(object):
         self.endpoint = endpoint
         self.client = NextCloud(endpoint=endpoint, user=user, password=password)
 
-        """get_user() in order to make this work.  If you don't get_user()
-        before making session requests you get {"message":"CSRF check failed"}
-        errors."""
+        # get_user() in order to make this work.  If you don't get_user()
+        # before making session requests you get {"message":"CSRF check failed"}
+        # errors.
         self.user_data = self.client.get_user()
 
         self.conversation_api = ConversationAPI(self)
@@ -51,3 +51,7 @@ class NextCloudTalk(object):
         """Get a specific conversation."""
         return self.conversation_api.get(
             room_token=room_token)
+
+    def open_conversation_list(self):
+        """Returns list of open public Conversations."""
+        return self.conversation_api.open_conversation_list()
