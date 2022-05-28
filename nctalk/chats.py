@@ -1,3 +1,5 @@
+from typing import Union
+
 from nextcloud import NextCloud
 
 from nctalk.api import NextCloudTalkAPI
@@ -18,9 +20,9 @@ class Chat(object):
     def send(
         self, 
         message: str, 
-        reply_to: int = None, 
-        display_name: str = None, 
-        reference_id: str = None, 
+        reply_to: int = 0, 
+        display_name: Union[str, None] = None,
+        reference_id: Union[str, None] = None, 
         silent: bool = False):
         """Send a text message to a conversation"""
         return self.api.query(
@@ -42,7 +44,7 @@ class ChatAPI(NextCloudTalkAPI):
     https://nextcloud-talk.readthedocs.io/en/latest/chat/
     """
 
-    def __init__(self, nextcloud_client: NextCloud):
+    def __init__(self, client: NextCloud):
         """Initialize the Conversation API."""
         self.api_endpoint = '/ocs/v2.php/apps/spreed/api/v1'
-        super().__init__(nextcloud_client, api_endpoint=self.api_endpoint)
+        super().__init__(client, api_endpoint=self.api_endpoint)

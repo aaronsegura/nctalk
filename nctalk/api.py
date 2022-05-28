@@ -46,9 +46,9 @@ class NextCloudTalkPreconditionFailed(NextCloudTalkException):
 class NextCloudTalkAPI(object):
     """Base class for all API objects."""
 
-    def __init__(self, nextcloud_client: NextCloud, api_endpoint: str):
-        self.endpoint = nextcloud_client.url + api_endpoint
-        self.client = nextcloud_client
+    def __init__(self, client: NextCloud, api_endpoint: str):
+        self.client = client
+        self.endpoint = self.client.url + api_endpoint
 
     def query(self, data: dict = {}, sub: str = '', method: str = 'GET'):
         """Submit query to almighty endpoint."""

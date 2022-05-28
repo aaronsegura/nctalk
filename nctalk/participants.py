@@ -1,6 +1,4 @@
 """Participants API."""
-from constants import Permissions
-
 
 class Participant(object):
     """A conversation participant."""
@@ -12,4 +10,4 @@ class Participant(object):
         return f'{self.__class__.__name__}({self.__dict__})'
 
     def __str__(self):
-        return f'Participant({self.actorId}, {self.displayName})'
+        return f'Participant({self.actorId}, {self.displayName})'  # type: ignore

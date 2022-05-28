@@ -1,13 +1,14 @@
 """Conversations API."""
 
-from typing import Union, List
+from typing import Union, List, AnyStr
 
 from nextcloud import NextCloud
+from urllib3 import HTTPResponse
 
-from constants import ConversationType, NotificationLevel, ListableScope
+from nctalk.constants import ConversationType, NotificationLevel, ListableScope, Permissions
 from nctalk.api import NextCloudTalkAPI, NextCloudTalkException
-from participants import Participant
-from chats import Chat, ChatAPI
+from nctalk.participants import Participant
+from nctalk.chats import Chat, ChatAPI
 
 
 class Conversation(object):
@@ -23,15 +24,15 @@ class Conversation(object):
 
         # Conversations and Chats are two different things 
         # according to the API /shrug
-        self.chat_api = ChatAPI(self.api.nextcloud_client)
-        self.chat = Chat(self.token, self.chat_api)
+        self.chat_api = ChatAPI(self.api.client)
+        self.chat = Chat(self.token, self.chat_api)  # type: ignore
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__})'
 
     def __str__(self):
         return f'{self.__class__.__name__}({self.token}, ' \
-               f'{ConversationType(int(self.type)).name}, {self.displayName})'
+               f'{ConversationType(int(self.type)).name}, {self.displayName})'  # type: ignore
 
     def rename(self, room_name: str):
         """Rename the room.
@@ -51,7 +52,7 @@ class Conversation(object):
         """
         return self.api.query(
             method='PUT',
-            sub=f'/room/{self.token}',
+            sub=f'/room/{self.token}',  # type: ignore
             data={'roomName': room_name})
 
     def delete(self):
@@ -69,7 +70,7 @@ class Conversation(object):
         """
         return self.api.query(
             method='DELETE',
-            sub=f'/room/{self.token}')
+            sub=f'/room/{self.token}')  # type: ignore
 
     def set_description(self, description: str):
         """Set description on room.
@@ -89,7 +90,7 @@ class Conversation(object):
         """
         req = self.api.query(
             method='PUT',
-            sub=f'/room/{self.token}/description',
+            sub=f'/room/{self.token}/description',  # type: ignore
             data={'description': description})
 
         self.description = description
@@ -99,39 +100,39 @@ class Conversation(object):
         if allow_guests:
             self.api.query(
                 method='POST',
-                sub=f'/room/{self.token}/public')
+                sub=f'/room/{self.token}/public')  # type: ignore
         else:
             self.api.query(
                 method='DELETE',
-                sub=f'/room/{self.token}/public')
+                sub=f'/room/{self.token}/public')  # type: ignore
 
     def read_only(self, read_only: int):
         """Set conversation to read-only or read-write."""
         return self.api.query(
             method='PUT',
-            sub=f'/room/{self.token}/read-only',
+            sub=f'/room/{self.token}/read-only',  # type: ignore
             data={'state': read_only})
 
     def set_password(self, password: str):
         """Set password for this converstaion."""
         return self.api.query(
             method='PUT',
-            sub=f'/room/{self.token}/password',
+            sub=f'/room/{self.token}/password',  # type: ignore
             data={'password': password})
 
     def add_to_favorites(self):
         """Add this room to favorites."""
         return self.api.query(
             method='POST',
-            sub=f'/room/{self.token}/favorite')
+            sub=f'/room/{self.token}/favorite')  # type: ignore
 
     def remove_from_favorites(self):
         """Remove this room from favorites."""
         return self.api.query(
             method='DELETE',
-            sub=f'/room/{self.token}/favorites')
+            sub=f'/room/{self.token}/favorites')  # type: ignore
 
-    def set_notification_level(self, notification_level: str):
+    def set_notification_level(self, notification_level: str) -> HTTPResponse:
         """Set notification level for room.
 
         See constants.NotificationLevel
@@ -141,14 +142,68 @@ class Conversation(object):
         }
         return self.api.query(
             method='POST',
-            sub=f'/room/{self.token}/notify',
+            sub=f'/room/{self.token}/notify',  # type: ignore
             data=data)
+
+    def set_call_notification_level(self, notification_level: str) -> HTTPResponse:
+        """Set notification level for calls.
+        
+        Required capability: notification-calls
+        Method: POST
+        Endpoint: /room/{token}/notify-calls
+        
+        level	int	The call notification level (See Participant call notification levels)
+
+        Exceptions:    
+        400 Bad Request When the given level is invalid
+        401 Unauthorized When the participant is a guest
+        404 Not Found When the conversation could not be found for the participant
+        """ 
+        data = {
+            'level':  NotificationLevel[notification_level].value
+        }
+        return self.api.query(
+            method='POST',
+            sub=f'/room/{self.token}/notify-calls',  # type: ignore
+            data=data)        
+
+    def set_permissions(
+        self, 
+        scope: str = 'default',
+        permissions: Permissions = Permissions(0)) -> HTTPResponse:
+        """Set default or call permissions.
+
+        Method: PUT
+        Endpoint: /room/{token}/permissions/{mode}
+
+        mode	string	'default' or 'call', in case of call the permissions will be 
+                        reset to 0 (default) after the end of a call.
+        permissions	int	New permissions for the attendees, see constants list. If 
+                        permissions are not 0 (default), the 1 (custom) permission 
+                        will always be added. Note that this will reset all custom 
+                        permissions that have been given to attendees so far.
+        Exceptions:
+        400 Bad Request When the conversation type does not support setting publishing 
+            permissions, e.g. one-to-one conversations
+        400 Bad Request When the mode is invalid
+        403 Forbidden When the current user is not a moderator, owner or guest moderator
+        404 Not Found When the conversation could not be found for the participant    
+        """
+        data = {
+            'mode' : scope,
+            'permissions': permissions,
+        }
+        return self.api.query(
+            method='PUT',
+            sub=f'/room/{self.token}/permissions/{scope}',  # type: ignore
+            data=data
+        )
 
     def leave(self):
         """Leave this room."""
         return self.api.query(
             method='DELETE',
-            sub=f'/room/{self.token}/participants/self')
+            sub=f'/room/{self.token}/participants/self')  # type: ignore
 
     def invite(self, invitee: str, source: str = 'users') -> Union[int, None]:
         """Invite a user to this room.
@@ -176,14 +231,14 @@ class Conversation(object):
                         returned
         """
         return self.api.query(
-            sub=f'/room/{self.token}/participants',
+            sub=f'/room/{self.token}/participants',  # type: ignore
             data={'newParticipant': invitee, 'source': source})
         
     @property
     def participants(self, include_status: bool = False) -> List[Participant]:
         """Return list of participants."""
         participants = self.api.query(
-            sub=f'/room/{self.token}/participants',
+            sub=f'/room/{self.token}/participants',  # type: ignore
             data={'includeStatus': include_status})
 
         result = participants['element']
@@ -208,24 +263,27 @@ class Conversation(object):
         """
         self.api.query(
             method='PUT',
-            sub=f'/room/{self.token}/listable',
+            sub=f'/room/{self.token}/listable',  # type: ignore
             data={'scope': ListableScope[scope].value})
 
     
-class ConversationAPI(object):
+class ConversationAPI(NextCloudTalkAPI):
     """Interface to the Conversations API.
 
     https://nextcloud-talk.readthedocs.io/en/latest/conversation/
     """
 
-    def __init__(self, nextcloud_client: NextCloud):
-        """Initialize the Conversation API."""
-        self.api_endpoint = '/ocs/v2.php/apps/spreed/api/v4'
-        self.nextcloud_client = nextcloud_client
-        super().__init__(nextcloud_client, api_endpoint=self.api_endpoint)
+    def __init__(self, client: NextCloud):
+        self.client = client
 
+        if 'conversation-v4' in self.client.capabilities:  # type: ignore
+            self.api_endpoint = '/ocs/v2.php/apps/spreed/api/v4'
+
+        super().__init__(client, api_endpoint=self.api_endpoint)
+
+        
     def __repr__(self) -> str:
-        return f'{self.__class__.__name__}({self.nextcloud_client})'
+        return f'{self.__class__.__name__}({self.client})'
 
     def __str__(self) -> str:
         return f'{self.__class__.__name__}()'
@@ -261,6 +319,8 @@ class ConversationAPI(object):
             rooms = [Conversation(request['element'], self)]
         elif isinstance(request['element'], list):  # Multiple Results
             rooms = [Conversation(x, self) for x in request['element']]
+        else:
+            raise NextCloudTalkException(f'Unexpected result: {request["element"]}')
 
         return rooms
 
@@ -306,5 +366,7 @@ class ConversationAPI(object):
             rooms = [Conversation(request['element'], self)]
         elif isinstance(request['element'], list):  # Multiple Results
             rooms = [Conversation(x, self) for x in request['element']]
+        else:
+            raise NextCloudTalkException(f"Unknown result: {request}")
 
         return rooms
