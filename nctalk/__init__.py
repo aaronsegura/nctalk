@@ -8,18 +8,17 @@ from nctalk.conversations import ConversationAPI, Conversation
 __version__ = importlib.metadata.version('nctalk')
 
 
-class NextCloudTalk(object):
+class NextCloudTalk(NextCloud):
     """Client for NextCloud Talk service."""
 
     def __init__(self, endpoint: str = '', user: str = '', password: str = ''):
         """Initialize the NextCloud client."""
-        self.endpoint = endpoint
-        self.client = NextCloud(endpoint=endpoint, user=user, password=password)
+        super().__init__(endpoint=endpoint, user=user, password=password)
 
         # get_user() in order to make this work.  If you don't get_user()
         # before making session requests you get {"message":"CSRF check failed"}
         # errors.
-        self.user_data = self.client.get_user()
+        self.user_data = self.get_user()
 
         self.conversation_api = ConversationAPI(self)
 

@@ -47,10 +47,8 @@ class NextCloudTalkAPI(object):
     """Base class for all API objects."""
 
     def __init__(self, nextcloud_client: NextCloud, api_endpoint: str):
-        self.api_endpoint = api_endpoint
-
-        self.endpoint = nextcloud_client.endpoint + self.api_endpoint
-        self.client = nextcloud_client.client
+        self.endpoint = nextcloud_client.url + api_endpoint
+        self.client = nextcloud_client
 
     def query(self, data: dict = {}, sub: str = '', method: str = 'GET'):
         """Submit query to almighty endpoint."""

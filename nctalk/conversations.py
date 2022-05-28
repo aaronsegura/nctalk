@@ -212,7 +212,7 @@ class Conversation(object):
             data={'scope': ListableScope[scope].value})
 
     
-class ConversationAPI(NextCloudTalkAPI):
+class ConversationAPI(object):
     """Interface to the Conversations API.
 
     https://nextcloud-talk.readthedocs.io/en/latest/conversation/
