@@ -4,6 +4,8 @@ import json
 
 import importlib.metadata
 
+from typing import List
+
 from requests.auth import HTTPBasicAuth
 from nextcloud import NextCloud
 
@@ -44,7 +46,7 @@ class NextCloudTalk(NextCloud):
     def conversation_list(
             self,
             no_status_update: int = 0,
-            include_status: bool = False) -> list:
+            include_status: bool = False) -> List[Conversation]:
         """Return list of user's conversations."""
         return self.conversation_api.list(
             no_status_update=no_status_update,
@@ -70,11 +72,11 @@ class NextCloudTalk(NextCloud):
         return self.conversation_api.get(
             room_token=room_token)
 
-    def open_conversation_list(self):
+    def open_conversation_list(self) -> List[Conversation]:
         """Returns list of open public Conversations."""
         return self.conversation_api.open_conversation_list()
 
-    def __populate_caches(self):
+    def __populate_caches(self) -> None:
         """Populate the __capabilities and __config caches."""
         request = self.session.request(
             method='GET',
@@ -86,7 +88,7 @@ class NextCloudTalk(NextCloud):
         self.__config = data['ocs']['data']['capabilities']['spreed']['config']
 
     @property
-    def capabilities(self) -> list:
+    def capabilities(self) -> List[str]:
         """Return list of advertised Talk capabilities.
 
         Caches results to prevent multiple lookups.

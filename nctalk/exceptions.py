@@ -41,3 +41,9 @@ class NextCloudTalkPreconditionFailed(NextCloudTalkException):
     """412 - User tried to join chat room without going to lobby."""
 
     pass
+
+
+class NextCloudTalkNotCapable(NextCloudTalkException):
+    """Raised when server does not have required capability."""
+
+    pass

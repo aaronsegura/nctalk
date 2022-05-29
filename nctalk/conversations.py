@@ -5,17 +5,16 @@ from typing import Union, List
 from nextcloud import NextCloud
 from urllib3 import HTTPResponse
 
-from constants import ConversationType, NotificationLevel, ListableScope, Permissions
-from api import NextCloudTalkAPI
-from chats import Chat, ChatAPI
-from exceptions import NextCloudTalkException
+from nctalk.constants import ConversationType, NotificationLevel, ListableScope, Permissions
+from nctalk.api import NextCloudTalkAPI
+from nctalk.chats import Chat, ChatAPI
+from nctalk.exceptions import NextCloudTalkException, NextCloudTalkNotCapable
 
 
 class Conversation(object):
     """A NextCloud Talk Conversation.
 
-    Conversation dictionary:
-    https://nextcloud-talk.readthedocs.io/en/latest/conversation/#get-user-s-conversations
+    https://nextcloud-talk.readthedocs.io/en/latest/conversation/
     """
 
     def __init__(self, data: dict, conversation_api: 'ConversationAPI'):
@@ -43,13 +42,16 @@ class Conversation(object):
         Method: PUT
         Endpoint: /room/{token}
 
-        field     type    Description
-        roomName  string  New name for the conversation (1-200 characters)
+        #### Arguments:
+        roomName  [string]  New name for the conversation (1-200 characters)
 
-        Exceptions:
+        #### Exceptions:
         400 Bad Request When the name is too long or empty
+
         400 Bad Request When the conversation is a one to one conversation
+
         403 Forbidden When the current user is not a moderator/owner
+
         404 Not Found When the conversation could not be found for the
             participant
         """
@@ -58,16 +60,18 @@ class Conversation(object):
             sub=f'/room/{self.token}',  # type: ignore
             data={'roomName': room_name})
 
-    def delete(self):
+    def delete(self) -> HTTPResponse:
         """Delete the room.
 
         Method: DELETE
         Endpoint: /room/{token}
 
-        Exceptions:
+        #### Exceptions:
         400 Bad Request When the conversation is a one-to-one conversation
             (Use Remove yourself from a conversation instead)
+
         403 Forbidden When the current user is not a moderator/owner
+
         404 Not Found When the conversation could not be found for the
             participant
         """
@@ -82,15 +86,21 @@ class Conversation(object):
         Method: PUT
         Endpoint: /room/{token}/description
 
-        field       type    Description
-        description string  New description for the conversation
+        #### Arguments:
+        description [string] New description for the conversation
 
-        Exceptions:
+        #### Exceptions:
         400 Bad Request When the description is too long
+
         400 Bad Request When the conversation is a one to one conversation
+
         403 Forbidden When the current user is not a moderator/owner
+
         404 Not Found When the conversation could not be found for the participant
         """
+        if 'room-description' not in self.api.client.capabilities:  # type: ignore
+            raise NextCloudTalkNotCapable('Server does not support setting room descriptions')
+
         return self.api.query(
             method='PUT',
             sub=f'/room/{self.token}/description',  # type: ignore
@@ -99,7 +109,20 @@ class Conversation(object):
         self.description = description
 
     def allow_guests(self, allow_guests: bool):
-        """Allow guests in a conversation."""
+        """Allow guests in a conversation (public conversation)#
+        Method: POST or DELETE
+        Endpoint: /room/{token}/public
+
+        #### Arguments:
+        allow_guests [bool] Allow (True) or disallow (False) guests
+
+        #### Exceptions:
+        400 Bad Request When the conversation is not a group conversation
+
+        403 Forbidden When the current user is not a moderator/owner
+
+        404 Not Found When the conversation could not be found for the participant
+        """
         if allow_guests:
             self.api.query(
                 method='POST',
@@ -109,36 +132,109 @@ class Conversation(object):
                 method='DELETE',
                 sub=f'/room/{self.token}/public')  # type: ignore
 
-    def read_only(self, read_only: int):
-        """Set conversation to read-only or read-write."""
+    def read_only(self, state: int):
+        """Set read-only for a conversation
+
+        Required capability: read-only-rooms
+        Method: PUT
+        Endpoint: /room/{token}/read-only
+
+        #### Arguments:
+        state	[int]	New state for the conversation, see constants list
+
+        #### Exceptions:
+        400 Bad Request When the conversation type does not support read-only
+            (only group and public conversation)
+
+        403 Forbidden When the current user is not a moderator/owner or the
+            conversation is not a public conversation
+
+        404 Not Found When the conversation could not be found for the
+            participant
+        """
+        if 'read-only-rooms' not in self.api.client.capabilities:  # type: ignore
+            raise NextCloudTalkNotCapable('Server doesn\'t support read-only rooms.')
+
         return self.api.query(
             method='PUT',
             sub=f'/room/{self.token}/read-only',  # type: ignore
-            data={'state': read_only})
+            data={'state': state})
 
     def set_password(self, password: str):
-        """Set password for this converstaion."""
+        """Set password for a conversation
+
+        Method: PUT
+        Endpoint: /room/{token}/password
+
+        #### Arguments:
+        password	string	New password for the conversation
+
+        #### Exceptions
+        403 Forbidden When the current user is not a moderator or owner
+
+        403 Forbidden When the conversation is not a public conversation
+
+        404 Not Found When the conversation could not be found for the participant
+        """
         return self.api.query(
             method='PUT',
             sub=f'/room/{self.token}/password',  # type: ignore
             data={'password': password})
 
     def add_to_favorites(self):
-        """Add this room to favorites."""
+        """Add conversation to favorites
+
+        Required capability: favorites
+        Method: POST
+        Endpoint: /room/{token}/favorite
+
+        #### Exceptions:
+        401 Unauthorized When the participant is a guest
+
+        404 Not Found When the conversation could not be found for the participant
+        """
+        if 'favorites' not in self.api.client.capabilities:  # type: ignore
+            raise NextCloudTalkNotCapable('Server does not support user favorites.')
+
         return self.api.query(
             method='POST',
             sub=f'/room/{self.token}/favorite')  # type: ignore
 
     def remove_from_favorites(self):
-        """Remove this room from favorites."""
+        """Remove conversation from favorites
+
+        Required capability: favorites
+        Method: DELETE
+        Endpoint: /room/{token}/favorite
+
+        #### Exceptions:
+        401 Unauthorized When the participant is a guest
+
+        404 Not Found When the conversation could not be found for the participant
+        """
+        if 'favorites' not in self.api.client.capabilities:  # type: ignore
+            raise NextCloudTalkNotCapable('Server does not support user favorites.')
+
         return self.api.query(
             method='DELETE',
             sub=f'/room/{self.token}/favorites')  # type: ignore
 
     def set_notification_level(self, notification_level: str) -> HTTPResponse:
-        """Set notification level for room.
+        """Set notification level
 
-        See constants.NotificationLevel
+        Required capability: notification-levels
+        Method: POST
+        Endpoint: /room/{token}/notify
+
+        #### Arguments:
+        notification_level	[str]	The notification level (See constants)
+
+        #### Exceptions:
+        400 Bad Request When the given level is invalid
+
+        401 Unauthorized When the participant is a guest
+
+        404 Not Found When the conversation could not be found for the participant
         """
         data = {
             'level':  NotificationLevel[notification_level].value
@@ -155,13 +251,20 @@ class Conversation(object):
         Method: POST
         Endpoint: /room/{token}/notify-calls
 
-        level	int	The call notification level (See Participant call notification levels)
+        #### Arguments:
+        level [int]	The call notification level (See constants)
 
-        Exceptions:
+        #### Exceptions:
         400 Bad Request When the given level is invalid
+
         401 Unauthorized When the participant is a guest
+
         404 Not Found When the conversation could not be found for the participant
         """
+        if 'notification-calls' not in self.api.client.capabilities:  # type: ignore
+            raise NextCloudTalkNotCapable(
+                    'Server does not support setting call notification levels.')
+
         data = {
             'level':  NotificationLevel[notification_level].value
         }
@@ -179,17 +282,24 @@ class Conversation(object):
         Method: PUT
         Endpoint: /room/{token}/permissions/{mode}
 
-        mode	string	'default' or 'call', in case of call the permissions will be
-                        reset to 0 (default) after the end of a call.
-        permissions	int	New permissions for the attendees, see constants list. If
-                        permissions are not 0 (default), the 1 (custom) permission
-                        will always be added. Note that this will reset all custom
-                        permissions that have been given to attendees so far.
-        Exceptions:
+        #### Arguments:
+        mode [string]	'default' or 'call', in case of call the permissions will be
+            reset to 0 (default) after the end of a call.
+
+        permissions	[int] New permissions for the attendees, see constants list. If
+            permissions are not 0 (default), the 1 (custom) permission
+            will always be added. Note that this will reset all custom
+            permissions that have been given to attendees so far.
+
+        #### Exceptions:
+
         400 Bad Request When the conversation type does not support setting publishing
             permissions, e.g. one-to-one conversations
+
         400 Bad Request When the mode is invalid
+
         403 Forbidden When the current user is not a moderator, owner or guest moderator
+
         404 Not Found When the conversation could not be found for the participant
         """
         data = {
@@ -202,8 +312,65 @@ class Conversation(object):
             data=data
         )
 
+    def join(
+            self,
+            password: Union[str, None],
+            force: bool = True) -> HTTPResponse:
+        """Join a conversation (available for call and chat)
+
+        Method: POST
+        Endpoint: /room/{token}/participants/active
+
+        #### Arguments:
+        password	[string]	Optional: Password is only required for users
+        which are self joined or guests and only when the conversation has
+        hasPassword set to true.
+
+        force   [bool]  If set to false and the user has an active
+        session already a 409 Conflict will be returned (Default: true - to
+        keep the old behaviour)
+
+        #### Exceptions:
+
+        * 403 Forbidden When the password is required and didn't match
+
+        * 404 Not Found When the conversation could not be found for the participant
+
+        * 409 Conflict When the user already has an active Talk session in the conversation
+            with this Nextcloud session. The suggested behaviour is to ask the
+            user whether they want to kill the old session and force join unless
+            the last ping is older than 60 seconds or older than 40 seconds when
+            the conflicting session is not marked as in a call.
+
+        #### Data in case of 409 Conflict:
+
+        sessionId   [string]  512 character long session string
+
+        inCall	    [int]   Flags whether the conflicting session is in a potential call
+
+        lastPing	[int]   Timestamp of the last ping of the conflicting session
+        """
+        data = {
+            'password': password,
+            'force': force,
+        }
+        return self.api.query(
+            method='POST',
+            sub=f'/room/{self.token}/participants/active',  # type: ignore
+            data=data)
+
     def leave(self):
-        """Leave this room."""
+        """Remove yourself from a conversation.
+
+        Method: DELETE
+        Endpoint: /room/{token}/participants/self
+
+        #### Exceptions:
+        400 Bad Request When the participant is a moderator or owner and there are
+            no other moderators or owners left.
+
+        404 Not Found When the conversation could not be found for the participant
+        """
         return self.api.query(
             method='DELETE',
             sub=f'/room/{self.token}/participants/self')  # type: ignore
@@ -214,23 +381,29 @@ class Conversation(object):
         Method: POST
         Endpoint: /room/{token}/participants
 
-        newParticipant	string	User, group, email or circle to add
-        source	        string	Source of the participant(s) as
-                                returned by the autocomplete suggestion
-                                endpoint (default is users)
-        Exceptions:
+        #### Arguments:
+        invitee	[string]	User, group, email or circle to add
+
+        source  [string]	Source of the participant(s) as
+            returned by the autocomplete suggestion endpoint (default is 'users')
+
+        #### Exceptions:
         400 Bad Request
             When the source type is unknown, currently users, groups, emails
             are supported. circles are supported with circles-support capability
+
         400 Bad Request
             When the conversation is a one-to-one conversation or a conversation
             to request a password for a share
+
         403 Forbidden - When the current user is not a moderator or owner
+
         404 Not Found - When the conversation could not be found for the participant
+
         404 Not Found - When the user or group to add could not be found
 
         Returns:
-        type	int     In case the conversation type changed, the new value is
+        type	[int]   In case the conversation type changed, the new value is
                         returned
         """
         return self.api.query(
@@ -256,7 +429,47 @@ class Conversation(object):
         return ret
 
     def send(self, **kwargs):
-        """Send a message to a conversation."""
+        """Sending a new chat message
+
+        Method: POST
+        Endpoint: /chat/{token}
+        Data:
+
+        #### Arguments:
+        message	[string]	The message the user wants to say
+
+        actorDisplayName	[string]	Guest display name (ignored for logged in users)
+
+        replyTo	[int]	The message ID this message is a reply to (only allowed for
+                        messages from the same conversation and when the message type
+                        is not system or command)
+
+        referenceId	[string]	A reference string to be able to identify the message
+                                again in a "get messages" request, should be a random
+                                sha256 (only available with chat-reference-id capability)
+
+        silent	[bool]	If sent silent the message will not create chat notifications
+                        even for mentions (only available with silent-send capability)
+
+        #### Exceptions:
+        400 Bad Request In case of any other error
+
+        403 Forbidden When the conversation is read-only
+
+        404 Not Found When the conversation could not be found for the participant
+
+        412 Precondition Failed When the lobby is active and the user is not a moderator
+
+        413 Payload Too Large When the message was longer than the allowed limit of 32000
+            characters (or 1000 until Nextcloud 16.0.1, check the spreed => config => chat
+            => max-length capability for the limit)
+
+        #### Response Header:
+        X-Chat-Last-Common-Read	[int]	ID of the last message read by every user that has
+                                        read privacy set to public. When the user themself
+                                        has it set to private the value the header is not
+                                        set (only available with chat-read-status capability)
+        """
         return self.chat.send(**kwargs)
 
     def change_listing_scope(self, scope: str) -> None:
@@ -264,7 +477,27 @@ class Conversation(object):
 
         Change who can see the conversation.
         See ListableScope, above.
+
+        Required capability: listable-rooms
+        Method: PUT
+        Endpoint: /room/{token}/listable
+
+        #### Arguments:
+        scope	[str]	New flags for the conversation (see constants)
+        Response:
+
+        #### Exceptions:
+        400 Bad Request When the conversation type does not support making it listable
+            (only group and public conversation)
+
+        403 Forbidden When the current user is not a moderator/owner or the conversation
+            is not a public conversation
+
+        404 Not Found When the conversation could not be found for the participant
         """
+        if 'listable-rooms' not in self.api.client.capabilities:  # type: ignore
+            raise NextCloudTalkNotCapable('Server does not support listable rooms.')
+
         self.api.query(
             method='PUT',
             sub=f'/room/{self.token}/listable',  # type: ignore
@@ -300,14 +533,14 @@ class ConversationAPI(NextCloudTalkAPI):
         Method: GET
         Endpoint: /room
 
-        field           type Description
-        noStatusUpdate  int  Whether the "online" user status of the current
+        #### Arguments:
+        noStatusUpdate  [int]  Whether the "online" user status of the current
                              user should be "kept-alive" (1) or not (0)
                              (defaults to 0)
-        includeStatus   bool Whether the user status information of all
+        includeStatus   [bool] Whether the user status information of all
                              one-to-one conversations should be loaded
                              (default false)
-        Exceptions:
+        #### Exceptions:
         401 Unauthorized when the user is not logged in
         """
         data = {
@@ -333,7 +566,28 @@ class ConversationAPI(NextCloudTalkAPI):
             invite: str = '',
             room_name: str = '',
             source: str = '') -> Conversation:
-        """Create a new conversation."""
+        """Create a new conversation.
+        Method: POST
+        Endpoint: /room
+
+        #### Arguments:
+        room_type	[str]	See constants list
+        invite	[str]	user id (roomType = 1), group id (roomType = 2 - optional),
+                        circle id (roomType = 2, source = 'circles'], only available
+                        with circles-support capability))
+        source	[str]	The source for the invite, only supported on roomType = 2 for
+                        groups and circles (only available with circles-support capability)
+        room_name	[str]	conversation name (Not available for roomType = 1)
+
+        #### Exceptions:
+        400 Bad Request When an invalid conversation type was given
+
+        400 Bad Request When the conversation name is empty for type = 3
+
+        401 Unauthorized When the user is not logged in
+
+        404 Not Found When the target to invite does not exist
+        """
         data = {
             'roomType': ConversationType[room_type].value,
             'invite': invite,
@@ -349,12 +603,8 @@ class ConversationAPI(NextCloudTalkAPI):
         Method: GET
         Endpoint: /room/{token}
 
-        Response:
-        Status code:
-
-        200 OK
-        404 Not Found When the conversation could not be found for the
-            participant
+        #### Exceptions:
+        404 Not Found When the conversation could not be found for the participant
         """
         room_data = self.query(sub=f'/room/{room_token}')
         return Conversation(room_data, self)
