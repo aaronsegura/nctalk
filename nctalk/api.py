@@ -6,41 +6,14 @@ import json
 from nextcloud import NextCloud
 from urllib.parse import urlencode
 
-
-class NextCloudTalkException(Exception):
-    """Generic Exception."""
-
-    pass
-
-
-class NextCloudTalkBadRequest(NextCloudTalkException):
-    """400 - User made a bad request."""
-
-    pass
-
-
-class NextCloudTalkUnauthorized(NextCloudTalkException):
-    """401 - User account is not authorized."""
-
-    pass
-
-
-class NextCloudTalkForbidden(NextCloudTalkException):
-    """403 - Forbidden action due to permissions."""
-
-    pass
-
-
-class NextCloudTalkNotFound(NextCloudTalkException):
-    """404 - Object was not found."""
-
-    pass
-
-
-class NextCloudTalkPreconditionFailed(NextCloudTalkException):
-    """412 - User tried to join chat room without going to lobby."""
-
-    pass
+from nctalk.exceptions import (
+    NextCloudTalkException,
+    NextCloudTalkBadRequest,
+    NextCloudTalkForbidden,
+    NextCloudTalkNotFound,
+    NextCloudTalkConflict,
+    NextCloudTalkPreconditionFailed,
+    NextCloudTalkUnauthorized)
 
 
 class NextCloudTalkAPI(object):
@@ -82,6 +55,8 @@ class NextCloudTalkAPI(object):
                     raise NextCloudTalkForbidden(exception_string)
                 case '404':
                     raise NextCloudTalkNotFound(exception_string)
+                case '409':
+                    raise NextCloudTalkConflict(exception_string)
                 case '412':
                     raise NextCloudTalkPreconditionFailed(exception_string)
                 case _:

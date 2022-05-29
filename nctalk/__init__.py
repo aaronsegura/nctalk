@@ -7,8 +7,8 @@ import importlib.metadata
 from requests.auth import HTTPBasicAuth
 from nextcloud import NextCloud
 
-from nctalk.conversations import ConversationAPI, Conversation
-from nctalk.api import NextCloudTalkException
+from nctalk.conversations import Conversation, ConversationAPI
+from nctalk.exceptions import NextCloudTalkException
 
 __version__ = importlib.metadata.version('nctalk')
 

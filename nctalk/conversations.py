@@ -5,10 +5,10 @@ from typing import Union, List
 from nextcloud import NextCloud
 from urllib3 import HTTPResponse
 
-from nctalk.constants import ConversationType, NotificationLevel, ListableScope, Permissions
-from nctalk.api import NextCloudTalkAPI, NextCloudTalkException
-from nctalk.participants import Participant
-from nctalk.chats import Chat, ChatAPI
+from constants import ConversationType, NotificationLevel, ListableScope, Permissions
+from api import NextCloudTalkAPI
+from chats import Chat, ChatAPI
+from exceptions import NextCloudTalkException
 
 
 class Conversation(object):
@@ -32,8 +32,10 @@ class Conversation(object):
         return f'{self.__class__.__name__}({self.__dict__})'
 
     def __str__(self):
-        return f'{self.__class__.__name__}({self.token}, ' \
-               f'{ConversationType(int(self.type)).name}, {self.displayName})'  # type: ignore
+        string = [f'{self.__class__.__name__}({self.token}, ']  # type: ignore
+        string.append(f'{ConversationType(int(self.type)).name}, ')  # type: ignore
+        string.append(f'{self.displayName})')  # type: ignore
+        return " ".join(string)
 
     def rename(self, room_name: str):
         """Rename the room.
@@ -236,7 +238,7 @@ class Conversation(object):
             data={'newParticipant': invitee, 'source': source})
 
     @property
-    def participants(self, include_status: bool = False) -> List[Participant]:
+    def participants(self, include_status: bool = False) -> List['Participant']:
         """Return list of participants."""
         participants = self.api.query(
             sub=f'/room/{self.token}/participants',  # type: ignore
@@ -244,9 +246,9 @@ class Conversation(object):
 
         result = participants['element']
         if isinstance(result, dict):
-            ret = [Participant(result)]
+            ret = [Participant(result, room=self)]
         elif isinstance(result, list):
-            ret = [Participant(user) for user in result]
+            ret = [Participant(user, room=self) for user in result]
         else:
             raise NextCloudTalkException(
                 f'Unknown Return type for participants: {type(result)}')
@@ -371,3 +373,40 @@ class ConversationAPI(NextCloudTalkAPI):
             raise NextCloudTalkException(f"Unknown result: {request}")
 
         return rooms
+
+
+class Participant(object):
+    """A conversation participant."""
+
+    def __init__(self, data: dict, room: Conversation):
+        self.__dict__.update(data)
+        self.room = room
+        self.api = self.room.api
+
+    def __repr__(self):
+        return f'{self.__class__.__name__}({self.__dict__})'
+
+    def __str__(self):
+        return f'Participant({self.actorId}, {self.room}, {self.displayName})'  # type: ignore
+
+    def remove(self):
+        """Delete an attendee from conversation.
+
+        Method: DELETE
+        Endpoint: /room/{token}/attendees
+
+        attendeeId	int	The participant to delete
+
+        Exceptions:
+        400 Bad Request When the participant is a moderator or owner
+        400 Bad Request When there are no other moderators or owners left
+        403 Forbidden When the current user is not a moderator or owner
+        403 Forbidden When the participant to remove is an owner
+        404 Not Found When the conversation could not be found for the participant
+        404 Not Found When the participant to remove could not be found
+        """
+        return self.api.query(
+            method='DELETE',
+            sub=f'/room/{self.room.token}/attendees',  # type: ignore
+            data={'attendeeId': self.attendeeId}  # type: ignore
+        )
