@@ -1,6 +1,6 @@
 """Conversations API."""
 
-from typing import Union, List, AnyStr
+from typing import Union, List
 
 from nextcloud import NextCloud
 from urllib3 import HTTPResponse
@@ -22,8 +22,9 @@ class Conversation(object):
         self.__dict__.update(data)
         self.api = conversation_api
 
-        # Conversations and Chats are two different things 
-        # according to the API /shrug
+        # Conversations and Chats are two different things
+        # according to the API /shrug, so generate a Chat()
+        # for every Conversation()
         self.chat_api = ChatAPI(self.api.client)
         self.chat = Chat(self.token, self.chat_api)  # type: ignore
 
@@ -72,7 +73,7 @@ class Conversation(object):
             method='DELETE',
             sub=f'/room/{self.token}')  # type: ignore
 
-    def set_description(self, description: str):
+    def set_description(self, description: str) -> HTTPResponse:
         """Set description on room.
 
         Required capability: room-description
@@ -88,7 +89,7 @@ class Conversation(object):
         403 Forbidden When the current user is not a moderator/owner
         404 Not Found When the conversation could not be found for the participant
         """
-        req = self.api.query(
+        return self.api.query(
             method='PUT',
             sub=f'/room/{self.token}/description',  # type: ignore
             data={'description': description})
@@ -147,50 +148,50 @@ class Conversation(object):
 
     def set_call_notification_level(self, notification_level: str) -> HTTPResponse:
         """Set notification level for calls.
-        
+
         Required capability: notification-calls
         Method: POST
         Endpoint: /room/{token}/notify-calls
-        
+
         level	int	The call notification level (See Participant call notification levels)
 
-        Exceptions:    
+        Exceptions:
         400 Bad Request When the given level is invalid
         401 Unauthorized When the participant is a guest
         404 Not Found When the conversation could not be found for the participant
-        """ 
+        """
         data = {
             'level':  NotificationLevel[notification_level].value
         }
         return self.api.query(
             method='POST',
             sub=f'/room/{self.token}/notify-calls',  # type: ignore
-            data=data)        
+            data=data)
 
     def set_permissions(
-        self, 
-        scope: str = 'default',
-        permissions: Permissions = Permissions(0)) -> HTTPResponse:
+            self,
+            scope: str = 'default',
+            permissions: Permissions = Permissions(0)) -> HTTPResponse:
         """Set default or call permissions.
 
         Method: PUT
         Endpoint: /room/{token}/permissions/{mode}
 
-        mode	string	'default' or 'call', in case of call the permissions will be 
+        mode	string	'default' or 'call', in case of call the permissions will be
                         reset to 0 (default) after the end of a call.
-        permissions	int	New permissions for the attendees, see constants list. If 
-                        permissions are not 0 (default), the 1 (custom) permission 
-                        will always be added. Note that this will reset all custom 
+        permissions	int	New permissions for the attendees, see constants list. If
+                        permissions are not 0 (default), the 1 (custom) permission
+                        will always be added. Note that this will reset all custom
                         permissions that have been given to attendees so far.
         Exceptions:
-        400 Bad Request When the conversation type does not support setting publishing 
+        400 Bad Request When the conversation type does not support setting publishing
             permissions, e.g. one-to-one conversations
         400 Bad Request When the mode is invalid
         403 Forbidden When the current user is not a moderator, owner or guest moderator
-        404 Not Found When the conversation could not be found for the participant    
+        404 Not Found When the conversation could not be found for the participant
         """
         data = {
-            'mode' : scope,
+            'mode': scope,
             'permissions': permissions,
         }
         return self.api.query(
@@ -212,14 +213,14 @@ class Conversation(object):
         Endpoint: /room/{token}/participants
 
         newParticipant	string	User, group, email or circle to add
-        source	        string	Source of the participant(s) as 
-                                returned by the autocomplete suggestion 
+        source	        string	Source of the participant(s) as
+                                returned by the autocomplete suggestion
                                 endpoint (default is users)
         Exceptions:
-        400 Bad Request 
-            When the source type is unknown, currently users, groups, emails 
+        400 Bad Request
+            When the source type is unknown, currently users, groups, emails
             are supported. circles are supported with circles-support capability
-        400 Bad Request 
+        400 Bad Request
             When the conversation is a one-to-one conversation or a conversation
             to request a password for a share
         403 Forbidden - When the current user is not a moderator or owner
@@ -227,13 +228,13 @@ class Conversation(object):
         404 Not Found - When the user or group to add could not be found
 
         Returns:
-        type	int     In case the conversation type changed, the new value is 
+        type	int     In case the conversation type changed, the new value is
                         returned
         """
         return self.api.query(
             sub=f'/room/{self.token}/participants',  # type: ignore
             data={'newParticipant': invitee, 'source': source})
-        
+
     @property
     def participants(self, include_status: bool = False) -> List[Participant]:
         """Return list of participants."""
@@ -247,7 +248,8 @@ class Conversation(object):
         elif isinstance(result, list):
             ret = [Participant(user) for user in result]
         else:
-            raise NextCloudTalkException(f'Unknown Return type for participants: {type(result)}')
+            raise NextCloudTalkException(
+                f'Unknown Return type for participants: {type(result)}')
 
         return ret
 
@@ -257,7 +259,7 @@ class Conversation(object):
 
     def change_listing_scope(self, scope: str) -> None:
         """Change scope for conversation.
-        
+
         Change who can see the conversation.
         See ListableScope, above.
         """
@@ -266,7 +268,7 @@ class Conversation(object):
             sub=f'/room/{self.token}/listable',  # type: ignore
             data={'scope': ListableScope[scope].value})
 
-    
+
 class ConversationAPI(NextCloudTalkAPI):
     """Interface to the Conversations API.
 
@@ -281,7 +283,6 @@ class ConversationAPI(NextCloudTalkAPI):
 
         super().__init__(client, api_endpoint=self.api_endpoint)
 
-        
     def __repr__(self) -> str:
         return f'{self.__class__.__name__}({self.client})'
 
@@ -358,7 +359,7 @@ class ConversationAPI(NextCloudTalkAPI):
 
     def open_conversation_list(self) -> List[Conversation]:
         """Get list of open rooms."""
-        request = self.query(sub=f'/listed-room')
+        request = self.query(sub='/listed-room')
 
         if not request:  # Zero results
             rooms = []

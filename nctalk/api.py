@@ -65,7 +65,7 @@ class NextCloudTalkAPI(object):
 
         if request.ok:
             # Convert OrderedDict from xmltodict.parse to regular dict.
-            request_data = json.loads(json.dumps(xmltodict.parse(request.content))) 
+            request_data = json.loads(json.dumps(xmltodict.parse(request.content)))
             try:
                 ret = request_data['ocs']['data']
             except KeyError:

@@ -5,6 +5,7 @@ https://nextcloud-talk.readthedocs.io/en/latest/constants/
 
 from enum import IntFlag, Enum
 
+
 class ConversationType(Enum):
     """Conversation Types."""
 
@@ -39,7 +40,7 @@ class ReadStatusPrivacy(Enum):
 
 class ListableScope(Enum):
     """Conversation Listing Scope"""
-    
+
     participants = 0
     users = 1
     everyone = 2
@@ -70,7 +71,7 @@ class ParticipantType(Enum):
 
 
 class ParticipantInCallFlags(IntFlag):
-    """Participant Call Status Flags."""    
+    """Participant Call Status Flags."""
 
     disconnected = 0
     in_call = 1
@@ -78,7 +79,7 @@ class ParticipantInCallFlags(IntFlag):
     provides_video = 4
     uses_sip_dial_in = 8
 
-    
+
 class WebinarLobbyStates(Enum):
     """Webinar Lobby States."""
 

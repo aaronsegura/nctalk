@@ -1,5 +1,6 @@
 """Participants API."""
 
+
 class Participant(object):
     """A conversation participant."""
 

@@ -16,18 +16,18 @@ __version__ = importlib.metadata.version('nctalk')
 class NextCloudTalk(NextCloud):
     """Client for NextCloud Talk service."""
 
-    __capabilities = []        
+    __capabilities = []
     __config = {}
 
     def __init__(
-        self, 
-        endpoint: str, 
-        user: str = '', 
-        password: str = '',
-        auth: HTTPBasicAuth = HTTPBasicAuth(None, None)):
+            self,
+            endpoint: str,
+            user: str = '',
+            password: str = '',
+            auth: HTTPBasicAuth = HTTPBasicAuth(None, None)):
         """Initialize the NextCloud client."""
 
-        if user and password:            
+        if user and password:
             super().__init__(endpoint=endpoint, user=user, password=password)
         elif auth.username and auth.password:
             super().__init__(endpoint=endpoint, auth=auth)
@@ -81,13 +81,14 @@ class NextCloudTalk(NextCloud):
             url=self.url + '/ocs/v1.php/cloud/capabilities'
         )
         data = json.loads(json.dumps(xmltodict.parse(request.content)))
-        self.__capabilities = data['ocs']['data']['capabilities']['spreed']['features']['element']
+        self.__capabilities = \
+            data['ocs']['data']['capabilities']['spreed']['features']['element']
         self.__config = data['ocs']['data']['capabilities']['spreed']['config']
 
     @property
     def capabilities(self) -> list:
         """Return list of advertised Talk capabilities.
-        
+
         Caches results to prevent multiple lookups.
         """
         if not self.__capabilities:
@@ -97,7 +98,7 @@ class NextCloudTalk(NextCloud):
     @property
     def config(self) -> dict:
         """Return Talk-related config.php variables.
-        
+
         Caches results to prevent multiple lookups.
         """
         if not self.__config:
