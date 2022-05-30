@@ -97,6 +97,8 @@ class Conversation(object):
         403 Forbidden When the current user is not a moderator/owner
 
         404 Not Found When the conversation could not be found for the participant
+
+        NextCloudTalkNotCapable When server is lacking required capability
         """
         if 'room-description' not in self.api.client.capabilities:  # type: ignore
             raise NextCloudTalkNotCapable('Server does not support setting room descriptions')
@@ -151,6 +153,8 @@ class Conversation(object):
 
         404 Not Found When the conversation could not be found for the
             participant
+
+        NextCloudTalkNotCapable When server is lacking required capability
         """
         if 'read-only-rooms' not in self.api.client.capabilities:  # type: ignore
             raise NextCloudTalkNotCapable('Server doesn\'t support read-only rooms.')
@@ -192,6 +196,8 @@ class Conversation(object):
         401 Unauthorized When the participant is a guest
 
         404 Not Found When the conversation could not be found for the participant
+
+        NextCloudTalkNotCapable When server is lacking required capability
         """
         if 'favorites' not in self.api.client.capabilities:  # type: ignore
             raise NextCloudTalkNotCapable('Server does not support user favorites.')
@@ -211,6 +217,8 @@ class Conversation(object):
         401 Unauthorized When the participant is a guest
 
         404 Not Found When the conversation could not be found for the participant
+
+        NextCloudTalkNotCapable When server is lacking required capability
         """
         if 'favorites' not in self.api.client.capabilities:  # type: ignore
             raise NextCloudTalkNotCapable('Server does not support user favorites.')
@@ -260,6 +268,8 @@ class Conversation(object):
         401 Unauthorized When the participant is a guest
 
         404 Not Found When the conversation could not be found for the participant
+
+        NextCloudTalkNotCapable When server is lacking required capability
         """
         if 'notification-calls' not in self.api.client.capabilities:  # type: ignore
             raise NextCloudTalkNotCapable(
@@ -494,6 +504,8 @@ class Conversation(object):
             is not a public conversation
 
         404 Not Found When the conversation could not be found for the participant
+
+        NextCloudTalkNotCapable When server is lacking required capability
         """
         if 'listable-rooms' not in self.api.client.capabilities:  # type: ignore
             raise NextCloudTalkNotCapable('Server does not support listable rooms.')
@@ -515,6 +527,8 @@ class ConversationAPI(NextCloudTalkAPI):
 
         if 'conversation-v4' in self.client.capabilities:  # type: ignore
             self.api_endpoint = '/ocs/v2.php/apps/spreed/api/v4'
+        else:
+            raise NextCloudTalkException('Unable to determine active Conversation endpoint.')
 
         super().__init__(client, api_endpoint=self.api_endpoint)
 
@@ -645,14 +659,20 @@ class Participant(object):
         Method: DELETE
         Endpoint: /room/{token}/attendees
 
-        attendeeId	int	The participant to delete
+        #### Arguments:
+        attendeeId	[int]	The participant to delete
 
-        Exceptions:
+        #### Exceptions:
         400 Bad Request When the participant is a moderator or owner
+
         400 Bad Request When there are no other moderators or owners left
+
         403 Forbidden When the current user is not a moderator or owner
+
         403 Forbidden When the participant to remove is an owner
+
         404 Not Found When the conversation could not be found for the participant
+
         404 Not Found When the participant to remove could not be found
         """
         return self.api.query(

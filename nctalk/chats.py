@@ -3,6 +3,7 @@ from typing import Union
 from nextcloud import NextCloud
 
 from nctalk.api import NextCloudTalkAPI
+from nctalk.exceptions import NextCloudTalkNotCapable
 
 
 class Chat(object):
@@ -47,5 +48,10 @@ class ChatAPI(NextCloudTalkAPI):
 
     def __init__(self, client: NextCloud):
         """Initialize the Conversation API."""
-        self.api_endpoint = '/ocs/v2.php/apps/spreed/api/v1'
+        self.client = client
+        if 'chat-v2' in self.client.capabilities:  # type: ignore
+            self.api_endpoint = '/ocs/v2.php/apps/spreed/api/v1'
+        else:
+            raise NextCloudTalkNotCapable('Unable to determine chat endpoint.')
+
         super().__init__(client, api_endpoint=self.api_endpoint)
