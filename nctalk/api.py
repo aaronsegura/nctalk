@@ -23,16 +23,22 @@ class NextCloudTalkAPI(object):
         self.client = client
         self.endpoint = self.client.url + api_endpoint
 
-    def query(self, data: dict = {}, sub: str = '', method: str = 'GET'):
+    def query(
+            self,
+            data: dict = {},
+            sub: str = '',
+            method: str = 'GET',
+            url: str = '',
+            include_headers: list = []):
         """Submit query to almighty endpoint."""
         if method == 'GET':
             url_data = urlencode(data)
             request = self.client.session.request(
-                url=f'{self.endpoint}{sub}?{url_data}',
+                url=f'{url}{sub}?{url_data}' if url else f'{self.endpoint}{sub}?{url_data}',
                 method=method)
         else:
             request = self.client.session.request(
-                url=f'{self.endpoint}{sub}',
+                url=f'{url}{sub}' if url else f'{self.endpoint}{sub}',
                 method=method,
                 data=data)
 
@@ -43,6 +49,9 @@ class NextCloudTalkAPI(object):
                 ret = request_data['ocs']['data']
             except KeyError:
                 raise NextCloudTalkException('Unable to parse response: ' + request_data)
+            for header in include_headers:
+                ret.setdefault('request_headers', {})\
+                   .setdefault(header, request.headers.get(header, None))
         else:
             failure_data = xmltodict.parse(request.content)['ocs']['meta']
             exception_string = '[{statuscode}] {status}: {message}'.format(**failure_data)

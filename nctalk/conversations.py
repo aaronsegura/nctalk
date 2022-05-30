@@ -43,7 +43,7 @@ class Conversation(object):
         Endpoint: /room/{token}
 
         #### Arguments:
-        roomName  [string]  New name for the conversation (1-200 characters)
+        roomName  [str]  New name for the conversation (1-200 characters)
 
         #### Exceptions:
         400 Bad Request When the name is too long or empty
@@ -87,7 +87,7 @@ class Conversation(object):
         Endpoint: /room/{token}/description
 
         #### Arguments:
-        description [string] New description for the conversation
+        description [str] New description for the conversation
 
         #### Exceptions:
         400 Bad Request When the description is too long
@@ -134,7 +134,7 @@ class Conversation(object):
                 method='DELETE',
                 sub=f'/room/{self.token}/public')  # type: ignore
 
-    def read_only(self, state: int):
+    def read_only(self, state: int) -> HTTPResponse:
         """Set read-only for a conversation
 
         Required capability: read-only-rooms
@@ -293,7 +293,7 @@ class Conversation(object):
         Endpoint: /room/{token}/permissions/{mode}
 
         #### Arguments:
-        mode [string]	'default' or 'call', in case of call the permissions will be
+        mode [str]	'default' or 'call', in case of call the permissions will be
             reset to 0 (default) after the end of a call.
 
         permissions	[int] New permissions for the attendees, see constants list. If
@@ -332,7 +332,7 @@ class Conversation(object):
         Endpoint: /room/{token}/participants/active
 
         #### Arguments:
-        password	[string]	Optional: Password is only required for users
+        password	[str]	Optional: Password is only required for users
         which are self joined or guests and only when the conversation has
         hasPassword set to true.
 
@@ -354,7 +354,7 @@ class Conversation(object):
 
         #### Data in case of 409 Conflict:
 
-        sessionId   [string]  512 character long session string
+        sessionId   [str]  512 character long session string
 
         inCall	    [int]   Flags whether the conflicting session is in a potential call
 
@@ -392,9 +392,9 @@ class Conversation(object):
         Endpoint: /room/{token}/participants
 
         #### Arguments:
-        invitee	[string]	User, group, email or circle to add
+        invitee	[str]	User, group, email or circle to add
 
-        source  [string]	Source of the participant(s) as
+        source  [str]	Source of the participant(s) as
             returned by the autocomplete suggestion endpoint (default is 'users')
 
         #### Exceptions:
@@ -446,15 +446,15 @@ class Conversation(object):
         Data:
 
         #### Arguments:
-        message	[string]	The message the user wants to say
+        message	[str]	The message the user wants to say
 
-        actorDisplayName	[string]	Guest display name (ignored for logged in users)
+        actorDisplayName	[str]	Guest display name (ignored for logged in users)
 
         replyTo	[int]	The message ID this message is a reply to (only allowed for
                         messages from the same conversation and when the message type
                         is not system or command)
 
-        referenceId	[string]	A reference string to be able to identify the message
+        referenceId	[str]	A reference string to be able to identify the message
                                 again in a "get messages" request, should be a random
                                 sha256 (only available with chat-reference-id capability)
 
@@ -498,10 +498,10 @@ class Conversation(object):
 
         #### Exceptions:
         400 Bad Request When the conversation type does not support making it listable
-            (only group and public conversation)
+        (only group and public conversation)
 
         403 Forbidden When the current user is not a moderator/owner or the conversation
-            is not a public conversation
+        is not a public conversation
 
         404 Not Found When the conversation could not be found for the participant
 
@@ -514,6 +514,150 @@ class Conversation(object):
             method='PUT',
             sub=f'/room/{self.token}/listable',  # type: ignore
             data={'scope': ListableScope[scope].value})
+
+    def set_permissions_for_participants(
+            self,
+            permissions: Permissions,
+            mode: str = 'add') -> HTTPResponse:
+        """Set permissions for all attendees#
+        Method: PUT
+        Endpoint: /room/{token}/attendees/permissions/all
+
+        #### Arguments:
+        mode	[str]	Mode of how permissions should be manipulated.  See constants list.
+        If the permissions were 0 (default) and the modification is add or remove, they will
+        be initialised with the call or default conversation permissions before, falling back
+        to 126 for moderators and 118 for normal participants.
+
+        permissions	[int]	New permissions for the attendees, see constants list. If
+        permissions are not 0 (default), the 1 (custom) permission will always be added.
+
+        #### Exceptions:
+        400 Bad Request When the conversation type does not support setting publishing
+        permissions, e.g. one-to-one conversations
+
+        400 Bad Request When the mode is invalid
+
+        403 Forbidden When the current user is not a moderator, owner or guest moderator
+
+        404 Not Found When the conversation could not be found for the participant
+        """
+        data = {
+            'mode': mode,
+            'permissions': permissions.value,
+        }
+        return self.api.query(
+            method='PUT',
+            sub=f'/room/{self.room.token}/attendees/permissions/all',  # type: ignore
+            data=data
+        )
+
+    def set_guest_display_name(
+            self,
+            display_name: str) -> HTTPResponse:
+        """Set display name as a guest.
+
+        API: Only v1
+        Method: POST
+        Endpoint: /guest/{token}/name
+
+        #### Arguments:
+        displayName	string	The new display name
+
+        #### Exceptions:
+        403 Forbidden When the current user is not a guest
+
+        404 Not Found When the conversation could not be found for the
+        participant
+        """
+        return self.api.query(
+            method='POST',
+            url=f'{self.api.client.url}/ocs/v2.php/apps/spreed/api/v1',
+            sub=f'/guest/{self.token}/name',  # type: ignore
+            data={'displayName': display_name}
+        )
+
+    def receive_messages(self, **kwargs):
+        """Receive chat messages of a conversation.
+
+        Method: GET
+        Endpoint: /chat/{token}
+
+        #### Arguments:
+        look_into_future	[bool]	1 Poll and wait for new message or 0 get history
+        of a conversation
+
+        limit	[int]	Number of chat messages to receive (100 by default, 200 at most)
+
+        last_known_message	[int]	Serves as an offset for the query. The lastKnownMessageId
+        for the next page is available in the X-Chat-Last-Given header.
+
+        last_common_read	[int]	Send the last X-Chat-Last-Common-Read header you got, if
+        you are interested in updates of the common read value. A 304 response does not allow
+        custom headers and otherwise the server can not know if your value is modified or not.
+
+        timeout	[int]	$lookIntoFuture = 1 only, Number of seconds to wait for new messages
+        (30 by default, 60 at most)
+
+        set_read_marker	[bool]	True to automatically set the read timer after fetching the
+        messages, use False when your client calls Mark chat as read manually. (Default: True)
+
+        include_last_known    [bool]	True to include the last known message as well (Default:
+        False)
+
+        #### Exceptions:
+        304 Not Modified When there were no older/newer messages
+
+        404 Not Found When the conversation could not be found for the participant
+
+        412 Precondition Failed When the lobby is active and the user is not a moderator
+
+        #### Response Header:
+
+        X-Chat-Last-Given	[int]	Offset (lastKnownMessageId) for the next page.
+        X-Chat-Last-Common-Read	[int]	ID of the last message read by every user that has
+        read privacy set to public. When the user themself has it set to private the value
+        the header is not set (only available with chat-read-status capability and when
+        lastCommonReadId was sent)
+
+        #### Response Data:
+        id	[int]	ID of the comment
+
+        token	[str]	Conversation token
+
+        actorType	[str]	See Constants - Actor types of chat messages
+
+        actorId	[str]	Actor id of the message author
+
+        actorDisplayName	[str]	Display name of the message author
+
+        timestamp	[int]	Timestamp in seconds and UTC time zone
+
+        systemMessage	[str]	empty for normal chat message or the type of the system message
+        (untranslated)
+
+        messageType	[str]	Currently known types are comment, comment_deleted, system
+        and command
+
+        isReplyable	[bool]	True if the user can post a reply to this message (only available
+        with chat-replies capability)
+
+        referenceId	[str]	A reference string that was given while posting the message to be
+        able to identify a sent message again (available with chat-reference-id capability)
+
+        message	[str]	Message string with placeholders (see Rich Object String)
+
+        messageParameters	[array]	Message parameters for message (see Rich Object String)
+
+        parent	[array]	Optional: See Parent data below
+
+        reactions	[array]	Optional: An array map with relation between reaction emoji and
+        total count of reactions with this emoji
+
+        reactionsSelf	[array]	Optional: When the user reacted this is the list of emojis
+        the user reacted with
+        """
+        return self.chat.receive_messages(**kwargs)
 
 
 class ConversationAPI(NextCloudTalkAPI):
@@ -540,7 +684,7 @@ class ConversationAPI(NextCloudTalkAPI):
 
     def list(
             self,
-            no_status_update: int = 0,
+            status_update: bool = False,
             include_status: bool = False) -> List[Conversation]:
         """Return list of user's conversations.
 
@@ -548,17 +692,17 @@ class ConversationAPI(NextCloudTalkAPI):
         Endpoint: /room
 
         #### Arguments:
-        noStatusUpdate  [int]  Whether the "online" user status of the current
-                             user should be "kept-alive" (1) or not (0)
-                             (defaults to 0)
-        includeStatus   [bool] Whether the user status information of all
-                             one-to-one conversations should be loaded
-                             (default false)
+        status_update  [bool]  Whether the "online" user status of the current
+        user should be "kept-alive" (True) or not (False) (defaults to False)
+
+        include_status   [bool] Whether the user status information of all
+        one-to-one conversations should be loaded (default false)
+
         #### Exceptions:
         401 Unauthorized when the user is not logged in
         """
         data = {
-            'noStatusUpdate': no_status_update,
+            'noStatusUpdate': 1 if status_update else 0,
             'includeStatus': include_status,
         }
         request = self.query(sub='/room', data=data)
@@ -585,14 +729,15 @@ class ConversationAPI(NextCloudTalkAPI):
         Endpoint: /room
 
         #### Arguments:
-        room_type	[str]	See constants list
+        room_type   [str]   See constants list
         invite	[str]	user id (roomType = 1), group id (roomType = 2 - optional),
-                        circle id (roomType = 2, source = 'circles'], only available
-                        with circles-support capability))
-        source	[str]	The source for the invite, only supported on roomType = 2 for
-                        groups and circles (only available with circles-support capability)
-        room_name	[str]	conversation name (Not available for roomType = 1)
+        circle id (roomType = 2, source = 'circles'], only available
+        with circles-support capability))
 
+        source	[str]	The source for the invite, only supported on roomType = 2 for
+        groups and circles (only available with circles-support capability)
+
+        room_name	[str]	conversation name (Not available for roomType = 1)
         #### Exceptions:
         400 Bad Request When an invalid conversation type was given
 
@@ -653,7 +798,7 @@ class Participant(object):
     def __str__(self):
         return f'Participant({self.actorId}, {self.room}, {self.displayName})'  # type: ignore
 
-    def remove(self):
+    def remove(self) -> HTTPResponse:
         """Delete an attendee from conversation.
 
         Method: DELETE
@@ -680,3 +825,110 @@ class Participant(object):
             sub=f'/room/{self.room.token}/attendees',  # type: ignore
             data={'attendeeId': self.attendeeId}  # type: ignore
         )
+
+    def promote(self) -> HTTPResponse:
+        """Promote a user or guest to moderator.
+
+        Method: POST
+        Endpoint: /room/{token}/moderators
+
+        #### Arguments:
+        attendeeId	int	Attendee id can be used for guests and users
+
+        #### Exceptions:
+        400 Bad Request When the participant to promote is not a normal
+        user (type 3) or normal guest (type 4)
+
+        403 Forbidden When the current user is not a moderator or owner
+
+        403 Forbidden When the participant to remove is an owner
+
+        404 Not Found When the conversation could not be found for the
+        participant
+
+        404 Not Found When the participant to remove could not be found
+        """
+        return self.api.query(
+            method='POST',
+            sub=f'/room/{self.room.token}/moderators',  # type: ignore
+            data={'attendeeId': self.attendeeId}  # type: ignore
+        )
+
+    def demote(self) -> HTTPResponse:
+        """Demote a moderator to user or guest.
+
+        Method: DELETE
+        Endpoint: /room/{token}/moderators
+
+        #### Arguments:
+        attendeeId	[int]	Attendee id can be used for guests and users
+
+        #### Exceptions:
+        400 Bad Request When the participant to demote is not a moderator
+        (type 2) or guest moderator (type 6)
+
+        403 Forbidden When the current participant is not a moderator or owner
+
+        403 Forbidden When the current participant tries to demote themselves
+
+        404 Not Found When the conversation could not be found for the participant
+
+        404 Not Found When the participant to demote could not be found
+        """
+        return self.api.query(
+            method='DELETE',
+            sub=f'/room/{self.room.token}/moderators',  # type: ignore
+            data={'attendeeId': self.attendeeId}  # type: ignore
+        )
+
+    def set_permissions(
+            self,
+            permissions: Permissions,
+            mode: str = 'add') -> HTTPResponse:
+        """Set permissions for an attendee.
+
+        Method: PUT
+        Endpoint: /room/{token}/attendees/permissions
+
+        #### Arguments:
+        attendeeId	[int]	Attendee id can be used for guests and users
+
+        mode	[str]	Mode of how permissions should be manipulated constants list.
+        If the permissions were 0 (default) and the modification is `add` or `remove`,
+        they will be initialised with the call or default conversation permissions
+        before, falling back to 126 for moderators and 118 for normal participants.
+
+        permissions	[Permissions()] New permissions for the attendee, see constants list.
+        If permissions are not 0 (default), the 1 (custom) permission will always be
+        added.
+
+        #### Exceptions:
+        400 Bad Request When the conversation type does not support setting publishing
+        permissions, e.g. one-to-one conversations
+
+        400 Bad Request When the attendee type is groups or circles
+
+        400 Bad Request When the mode is invalid
+
+        403 Forbidden When the current user is not a moderator, owner or guest moderator
+
+        404 Not Found When the conversation could not be found for the participant
+
+        404 Not Found When the attendee to set publishing permissions could not be found
+        """
+        data = {
+            'attendeeId': self.attendeeId,  # type: ignore
+            'mode': mode,
+            'permissions': permissions.value
+        }
+        return self.api.query(
+            method='PUT',
+            sub=f'/room/{self.room.token}/attendees/permissions',  # type: ignore
+            data=data
+        )
+
+
+class Message(object):
+    """A NextCloudTalk Message from a Conversation."""
+
+    pass

@@ -19,6 +19,30 @@ class Chat(object):
     def __str__(self):
         return f'Chat({self.token})'
 
+    def receive_messages(
+            self,
+            last_known_message: int,
+            last_common_read: int,
+            look_into_future: bool = False,
+            limit: int = 100,
+            timeout: int = 30,
+            set_read_marker: bool = True,
+            include_last_known: bool = False):
+        return self.api.query(
+            method='GET',
+            sub=f'/chat/{self.token}',
+            data={
+                'lookIntoFuture': 1 if look_into_future else 0,
+                'limit': limit,
+                'lastKnownMessageId': last_known_message,
+                'lastCommonReadId': last_common_read,
+                'timeout': timeout,
+                'setReadMaker': 1 if set_read_marker else 0,
+                'includeLastKnown': 1 if include_last_known else 0
+            },
+            include_headers=['X-Chat-Last-Given', 'X-Chat-Last-Common-Read']
+        )
+
     def send(
             self,
             message: str,

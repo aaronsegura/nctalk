@@ -85,11 +85,3 @@ class WebinarLobbyStates(Enum):
 
     no_lobby = 0
     lobby = 1
-
-
-class SIPStates(Enum):
-    """SIP States."""
-
-    disabled = 0
-    enabled = 1  # (Each participant needs a unique PIN)
-    enabled_no_pin = 2  # (Only the conversation token is required)
