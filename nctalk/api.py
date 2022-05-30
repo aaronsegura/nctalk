@@ -50,7 +50,7 @@ class NextCloudTalkAPI(object):
             except KeyError:
                 raise NextCloudTalkException('Unable to parse response: ' + request_data)
             for header in include_headers:
-                ret.setdefault('request_headers', {})\
+                ret.setdefault('response_headers', {})\
                    .setdefault(header, request.headers.get(header, None))
         else:
             failure_data = xmltodict.parse(request.content)['ocs']['meta']
