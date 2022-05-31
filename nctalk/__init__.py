@@ -52,19 +52,21 @@ class NextCloudTalk(NextCloud):
 
     __capabilities = []
     __config = {}
+    __server_version = ''
 
     def __init__(
             self,
             endpoint: str,
             user: str = '',
             password: str = '',
-            auth: HTTPBasicAuth = HTTPBasicAuth(None, None)):
+            auth: HTTPBasicAuth = HTTPBasicAuth(None, None),
+            **kwargs):
         """Initialize the NextCloud client."""
 
         if user and password:
-            super().__init__(endpoint=endpoint, user=user, password=password)
+            super().__init__(endpoint=endpoint, user=user, password=password, **kwargs)
         elif auth.username and auth.password:
-            super().__init__(endpoint=endpoint, auth=auth)
+            super().__init__(endpoint=endpoint, auth=auth, **kwargs)
         else:
             raise NextCloudTalkException("Incomplete credentials presented.")
 
@@ -72,6 +74,7 @@ class NextCloudTalk(NextCloud):
         # before making session requests you get {"message":"CSRF check failed"}
         # errors.
         self.user_data = self.get_user().json_data  # type: ignore
+        self.__populate_caches()
 
         self.conversation_api = ConversationAPI(self)
 
@@ -118,23 +121,25 @@ class NextCloudTalk(NextCloud):
         self.__capabilities = \
             data['ocs']['data']['capabilities']['spreed']['features']['element']
         self.__config = data['ocs']['data']['capabilities']['spreed']['config']
+        self.__server_version = data['ocs']['data']['version']['string']
 
     @property
     def capabilities(self) -> List[str]:
-        """Return list of advertised Talk capabilities.
-
-        Caches results to prevent multiple lookups.
-        """
+        """Return list of advertised Talk capabilities."""
         if not self.__capabilities:
             self.__populate_caches()
         return self.__capabilities
 
     @property
     def config(self) -> dict:
-        """Return Talk-related config.php variables.
-
-        Caches results to prevent multiple lookups.
-        """
+        """Return Talk-related config.php variables."""
         if not self.__config:
             self.__populate_caches()
         return self.__config
+
+    @property
+    def server_version(self) -> str:
+        """Return server version string."""
+        if not self.__server_version:
+            self.__populate_caches()
+        return self.__server_version
