@@ -81,11 +81,7 @@ class Chat(object):
         Data:
 
         #### Arguments:
-        object_type	[str]	The object type
-
-        object_id	[str]	The object id
-
-        metadata	[str]	Array of the rich objects data
+        rich_object	[NextCloudTalkRichObject]	The rich object
 
         actor_display_name	[str]   Guest display name (ignored for logged in users)
 
@@ -121,7 +117,7 @@ class Chat(object):
             data={
                 'objectType': rich_object.object_type,
                 'objectId': rich_object.id,
-                'metaData': json.dumps(rich_object.metadata()),
+                'metaData': json.dumps(rich_object.metadata),
                 'actorDisplayName': actor_display_name,
                 'referenceId': reference_id
             }

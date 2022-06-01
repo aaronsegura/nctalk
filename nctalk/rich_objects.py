@@ -14,6 +14,7 @@ class NextCloudTalkRichObject(object):
         self.id = id
         self.name = name
 
+    @property
     def metadata(self):
         """Return metadata array."""
         return {'id': self.id, 'name': self.name}
@@ -49,6 +50,7 @@ class Call(NextCloudTalkRichObject):
     object_type = 'call'
     call_type = ''
 
+    @property
     def metadata(self):
         return {
             'id': self.id,
@@ -105,6 +107,7 @@ class GeoLocation(NextCloudTalkRichObject):
         return f'{__class__.__name__}'\
                f'(latitude={self.latitude}, longitude={self.longitude}, name={self.name})'
 
+    @property
     def metadata(self):
         return {
             'id': f'geo:{self.latitude},{self.longitude}',
