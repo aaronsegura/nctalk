@@ -1,20 +1,18 @@
-"""Classes representing Rich Objects for sharing."""
+"""Classes representing Rich Objects for sharing.
 
-
-from nctalk.exceptions import NextCloudTalkException
+https://github.com/nextcloud/server/blob/master/lib/public/RichObjectStrings/Definitions.php
+"""
 
 
 class NextCloudTalkRichObject(object):
     """Base Class for Rich Objects."""
 
-    id = None
-    name = None
     object_type = None
 
-    def __init__(self, data: dict):
-        if 'id' not in data or 'name' not in data:
-            raise NextCloudTalkException(f'{__class__.__name__} requires `id` and `name`.')
-        self.__dict__.update(data)
+    def __init__(self, id: str, name: str, **kwargs):
+        self.__dict__.update(kwargs)
+        self.id = id
+        self.name = name
 
     def metadata(self):
         """Return metadata array."""
@@ -49,12 +47,7 @@ class CalendarEvent(NextCloudTalkRichObject):
 class Call(NextCloudTalkRichObject):
 
     object_type = 'call'
-    call_type = None
-
-    def __init__(self, data: dict):
-        if 'call_type' not in data:
-            raise NextCloudTalkException(f'\'call_type\' required for {__class__.__name__}')
-        super().__init__(data)
+    call_type = ''
 
     def metadata(self):
         return {
@@ -106,11 +99,11 @@ class GeoLocation(NextCloudTalkRichObject):
             'name': name,
             'longitude': longitude,
             'latitude': latitude}
-        super().__init__(data)
+        super().__init__(**data)
 
     def __str__(self):
         return f'{__class__.__name__}'\
-               f'(latitude={self.latitude}, longitude={self.longitude})'
+               f'(latitude={self.latitude}, longitude={self.longitude}, name={self.name})'
 
     def metadata(self):
         return {
