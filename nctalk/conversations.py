@@ -1,5 +1,4 @@
 """Conversations API."""
-
 from typing import Union, List
 
 from nextcloud import NextCloud
@@ -659,6 +658,78 @@ class Conversation(object):
         """
         return self.chat.receive_messages(**kwargs)
 
+    def send_rich_object(self, **kwargs):
+        """Share a rich object to the chat.
+
+        https://github.com/nextcloud/server/blob/master/lib/public/RichObjectStrings/Definitions.php
+
+        Required capability: rich-object-sharing
+        Method: POST
+        Endpoint: /chat/{token}/share
+        Data:
+
+        #### Arguments:
+        object_type	[str]	The object type
+
+        object_id	[str]	The object id
+
+        metadata	[str]	Array of the rich objects data
+
+        actor_display_name	[str]   Guest display name (ignored for logged in users)
+
+        reference_id	[str]	A reference string to be able to identify the message
+        again in a "get messages" request, should be a random sha256 (only available
+        with chat-reference-id capability)
+
+        #### Exceptions:
+        400 Bad Request In case the meta data is invalid
+
+        403 Forbidden When the conversation is read-only
+
+        404 Not Found When the conversation could not be found for the participant
+
+        412 Precondition Failed When the lobby is active and the user is not a moderator
+
+        413 Payload Too Large When the message was longer than the allowed limit of
+        32000 characters (or 1000 until Nextcloud 16.0.1, check the spreed => config =>
+        chat => max-length capability for the limit)
+
+        #### Response Header:
+        X-Chat-Last-Common-Read	[int]	ID of the last message read by every user that has
+        read privacy set to public. When the user themself has it set to private the value
+        the header is not set (only available with chat-read-status capability)
+
+        #### Response Data:
+        The full message array of the new message, as defined in Receive chat messages
+        of a conversation
+        """
+        return self.chat.send_rich_object(**kwargs)
+
+    def clear_history(self) -> HTTPResponse:
+        """Clear chat history.
+
+        Required capability: clear-history
+        Method: DELETE
+        Endpoint: /chat/{token}
+
+        #### Exceptions:
+        403 Forbidden When the user is not a moderator
+
+        404 Not Found When the conversation could not be found for the participant
+
+        #### Response Header:
+        X-Chat-Last-Common-Read	[int]	ID of the last message read by every user that
+        has read privacy set to public. When the user themself has it set to private
+        the value the header is not set (only available with chat-read-status capability)
+
+        #### Response Data:
+        The full message array of the new system message "You cleared the history
+        of the conversation", as defined in Receive chat messages of a conversation.  When
+        rendering this message the client should also remove all messages from any
+        cache/storage of the device.
+        """
+        return self.chat.clear_history()
+
 
 class ConversationAPI(NextCloudTalkAPI):
     """Interface to the Conversations API.
@@ -787,6 +858,10 @@ class ConversationAPI(NextCloudTalkAPI):
 class Participant(object):
     """A conversation participant."""
 
+    actorId = None
+    displayName = None
+    attendeeId = None
+
     def __init__(self, data: dict, room: Conversation):
         self.__dict__.update(data)
         self.room = room
@@ -796,7 +871,7 @@ class Participant(object):
         return f'{self.__class__.__name__}({self.__dict__})'
 
     def __str__(self):
-        return f'Participant({self.actorId}, {self.room}, {self.displayName})'  # type: ignore
+        return f'Participant({self.actorId}, {self.room}, {self.displayName})'
 
     def remove(self) -> HTTPResponse:
         """Delete an attendee from conversation.
@@ -823,7 +898,7 @@ class Participant(object):
         return self.api.query(
             method='DELETE',
             sub=f'/room/{self.room.token}/attendees',  # type: ignore
-            data={'attendeeId': self.attendeeId}  # type: ignore
+            data={'attendeeId': self.attendeeId}
         )
 
     def promote(self) -> HTTPResponse:
@@ -851,7 +926,7 @@ class Participant(object):
         return self.api.query(
             method='POST',
             sub=f'/room/{self.room.token}/moderators',  # type: ignore
-            data={'attendeeId': self.attendeeId}  # type: ignore
+            data={'attendeeId': self.attendeeId}
         )
 
     def demote(self) -> HTTPResponse:
@@ -878,7 +953,7 @@ class Participant(object):
         return self.api.query(
             method='DELETE',
             sub=f'/room/{self.room.token}/moderators',  # type: ignore
-            data={'attendeeId': self.attendeeId}  # type: ignore
+            data={'attendeeId': self.attendeeId}
         )
 
     def set_permissions(
@@ -917,7 +992,7 @@ class Participant(object):
         404 Not Found When the attendee to set publishing permissions could not be found
         """
         data = {
-            'attendeeId': self.attendeeId,  # type: ignore
+            'attendeeId': self.attendeeId,
             'mode': mode,
             'permissions': permissions.value
         }

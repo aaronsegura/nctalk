@@ -1,9 +1,12 @@
+import json
+
 from typing import Union
 
 from nextcloud import NextCloud
 
 from nctalk.api import NextCloudTalkAPI
 from nctalk.exceptions import NextCloudTalkNotCapable
+from nctalk.rich_objects import NextCloudTalkRichObject
 
 
 class Chat(object):
@@ -65,10 +68,8 @@ class Chat(object):
 
     def send_rich_object(
             self,
-            object_type: str,
-            object_id: str,
-            metadata: str,
-            reference_id: str,
+            rich_object: NextCloudTalkRichObject,
+            reference_id: Union[str, None] = None,
             actor_display_name: str = 'Guest'):
         """Share a rich object to the chat.
 
@@ -84,7 +85,7 @@ class Chat(object):
 
         object_id	[str]	The object id
 
-        metadata	[str]	JSON encoded array of the rich objects data
+        metadata	[str]	Array of the rich objects data
 
         actor_display_name	[str]   Guest display name (ignored for logged in users)
 
@@ -96,7 +97,6 @@ class Chat(object):
         400 Bad Request In case the meta data is invalid
 
         403 Forbidden When the conversation is read-only
-
 
         404 Not Found When the conversation could not be found for the participant
 
@@ -115,8 +115,47 @@ class Chat(object):
         The full message array of the new message, as defined in Receive chat messages
         of a conversation
         """
-        pass
-        # TODO: Start Here
+        return self.api.query(
+            method='POST',
+            sub=f'/chat/{self.token}/share',
+            data={
+                'objectType': rich_object.object_type,
+                'objectId': rich_object.id,
+                'metaData': json.dumps(rich_object.metadata()),
+                'actorDisplayName': actor_display_name,
+                'referenceId': reference_id
+            }
+        )
+
+    def clear_history(self):
+        """Clear chat history.
+
+        Required capability: clear-history
+        Method: DELETE
+        Endpoint: /chat/{token}
+
+        #### Exceptions:
+        403 Forbidden When the user is not a moderator
+
+        404 Not Found When the conversation could not be found for the participant
+
+        #### Response Header:
+        X-Chat-Last-Common-Read	[int]	ID of the last message read by every user that
+        has read privacy set to public. When the user themself has it set to private
+        the value the header is not set (only available with chat-read-status capability)
+
+        #### Response Data:
+        The full message array of the new system message "You cleared the history
+        of the conversation", as defined in Receive chat messages of a conversation.  When
+        rendering this message the client should also remove all messages from any
+        cache/storage of the device.
+        """
+        if 'clear-history' not in self.api.client.capabilities:  # type: ignore
+            raise NextCloudTalkNotCapable('Server does not support deletion of chat history.')
+        return self.api.query(
+            method='DELETE',
+            sub=f'/chat/{self.token}'  # type: ignore
+        )
 
 
 class ChatAPI(NextCloudTalkAPI):

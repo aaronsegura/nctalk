@@ -29,7 +29,7 @@ Example:
     jit4tk78 Family Chat None
     6rsa4brg Talk updates ✅ None
     3vkymk5m Test public room None
-    >>> message = conversation[0].send(message='hello')
+    >>> message = conversations[0].send(message='hello')
     >>> print(message['id'])
     '4387'
 
