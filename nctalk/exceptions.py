@@ -8,42 +8,43 @@ class NextCloudTalkException(Exception):
 
 
 class NextCloudTalkBadRequest(NextCloudTalkException):
-    """400 - User made a bad request."""
 
-    pass
+    code = 400
+    reason = 'User made a bad request.'
 
 
 class NextCloudTalkUnauthorized(NextCloudTalkException):
-    """401 - User account is not authorized."""
 
-    pass
+    code = 401
+    reason = 'User account is not authorized.'
 
 
 class NextCloudTalkForbidden(NextCloudTalkException):
-    """403 - Forbidden action due to permissions."""
 
-    pass
+    code = 403
+    reason = 'Forbidden action due to permissions.'
 
 
 class NextCloudTalkNotFound(NextCloudTalkException):
-    """404 - Object was not found."""
 
-    pass
+    code = 404
+    reason = 'Object not found.'
 
 
 class NextCloudTalkConflict(NextCloudTalkException):
-    """409 - Conflict - user has duplicate sessions."""
 
-    pass
+    code = 409
+    reason = 'User has duplicate sessions.'
 
 
 class NextCloudTalkPreconditionFailed(NextCloudTalkException):
-    """412 - User tried to join chat room without going to lobby."""
 
-    pass
+    code = 412
+    reason = 'User tried to join chat room without going to lobby.'
 
 
 class NextCloudTalkNotCapable(NextCloudTalkException):
     """Raised when server does not have required capability."""
 
-    pass
+    code = 499
+    reason = 'Server does not support required capability.'
