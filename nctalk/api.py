@@ -955,6 +955,61 @@ class Conversation(object):
     def chat_last_common_read(self):
         return self.chat.headers['X-Chat-Last-Common-Read']
 
+    def get_autocomplete_suggestions(
+            self,
+            search: str,
+            limit: int = 20,
+            include_status: bool = False) -> HTTPResponse:
+        """Get mention autocomplete suggestions
+
+        Method: GET
+        Endpoint: /chat/{token}/mentions
+
+        #### Arguments:
+        search	[str]	Search term for name suggestions (should at least be 1 character)
+
+        limit	[int]	Number of suggestions to receive (20 by default)
+
+        include_status	[bool]	Whether the user status information also needs to be loaded
+
+        #### Exceptions:
+        403 Forbidden When the conversation is read-only
+
+        404 Not Found When the conversation could not be found for the participant
+
+        412 Precondition Failed When the lobby is active and the user is not a moderator
+
+        #### Response Data:
+        Each suggestion has at least:
+
+        id	[str]	The user id which should be sent as @<id> in the message (user ids
+        that contain spaces as well as guest ids need to be wrapped in double-quotes when
+        sending in a message: @"space user" and @"guest/random-string")
+
+        label	[str]	The displayname of the user
+
+        source	[str]	The type of the user, currently only `users`, `guests` or `calls` (for
+        mentioning the whole conversation)
+
+        status	[str]	Optional: Only available with include_status=true and for users with a
+        set status
+
+        statusIcon	[str]	Optional: Only available with include_status=true and for users
+        with a set status
+
+        statusMessage	[str]	Optional: Only available with includeStatus=true and for
+        users with a set status
+        """
+        return self.chat.api.query(
+            method='GET',
+            sub=f'/chat/{self.token}/mentions',  # type: ignore
+            data={
+                'search': search,
+                'limit': limit,
+                'includeStatus': include_status,
+            }
+        )
+
 
 class Chat(object):
     """Represents a NextCloud Chat Object."""
