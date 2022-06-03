@@ -58,7 +58,7 @@ class NextCloudTalkAPI(object):
             # Convert OrderedDict from xmltodict.parse to regular dict.
             request_data = json.loads(json.dumps(xmltodict.parse(request.content)))
             try:
-                ret = request_data['ocs']['data']
+                ret = request_data['ocs']['data'] or {}
             except KeyError:
                 raise NextCloudTalkException('Unable to parse response: ' + request_data)
             for header in include_headers:
@@ -1334,4 +1334,32 @@ class Message(object):
             include_headers=['X-Chat-Last-Common-Read']
         )
         self.chat.headers.update(response['response_headers'])
+        return response
+
+    def mark_read(self) -> HTTPResponse:
+        """Mark chat as read.
+
+        Required capability: chat-read-marker
+        Method: POST
+        Endpoint: /chat/{token}/read
+
+        #### Arguments:
+        lastReadMessage	[int]	The last read message ID
+
+        #### Exceptions:
+        404 Not Found When the room could not be found for the participant, or the
+        participant is a guest.
+
+        #### Response Header:
+        X-Chat-Last-Common-Read	[int]	ID of the last message read by every user that
+        has read privacy set to public. When the user themself has it set to private the
+        value the header is not set (only available with chat-read-status capability)
+        """
+        response = self.chat.api.query(
+            method='POST',
+            sub=f'/chat/{self.chat.token}/read',
+            data={'lastReadMessage': {self.id}},
+            include_headers=['X-Chat-Last-Common-Read']
+        )
+        self.chat.headers.update(response.get('response_headers', {}))
         return response
