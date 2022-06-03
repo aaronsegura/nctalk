@@ -1363,3 +1363,27 @@ class Message(object):
         )
         self.chat.headers.update(response.get('response_headers', {}))
         return response
+
+    def mark_unread(self):
+        """Mark chat as unread.
+
+        Required capability: chat-unread
+        Method: DELETE
+        Endpoint: /chat/{token}/read
+
+        #### Exceptions:
+        404 Not Found When the room could not be found for the participant, or the participant
+        is a guest.
+
+        #### Response Headers:
+        X-Chat-Last-Common-Read	[int]	ID of the last message read by every user that has read
+        privacy set to public. When the user themself has it set to private the value the
+        header is not set (only available with chat-read-status capability)
+        """
+        response = self.chat.api.query(
+            method='DELETE',
+            sub=f'/chat/{self.chat.token}/read',
+            include_headers=['X-Chat-Last-Common-Read']
+        )
+        self.chat.headers.update(response.get('response_headers', {}))
+        return response
