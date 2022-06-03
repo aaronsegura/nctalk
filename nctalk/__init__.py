@@ -9,8 +9,9 @@ from typing import List
 from requests.auth import HTTPBasicAuth
 from nextcloud import NextCloud
 
-from nctalk.conversations import Conversation, ConversationAPI
-from nctalk.exceptions import NextCloudTalkException
+from .exceptions import NextCloudTalkException
+
+from . import api
 
 __version__ = importlib.metadata.version('nctalk')
 
@@ -76,12 +77,12 @@ class NextCloudTalk(NextCloud):
         self.user_data = self.get_user().json_data  # type: ignore
         self.__populate_caches()
 
-        self.conversation_api = ConversationAPI(self)
+        self.conversation_api = api.ConversationAPI(self)
 
     def conversation_list(
             self,
             status_update: bool = False,
-            include_status: bool = False) -> List[Conversation]:
+            include_status: bool = False) -> List[api.Conversation]:
         """Return list of user's conversations."""
         return self.conversation_api.list(
             status_update=status_update,
@@ -92,7 +93,7 @@ class NextCloudTalk(NextCloud):
             room_type: str,
             invite: str,
             source: str = '',
-            room_name: str = '') -> Conversation:
+            room_name: str = '') -> api.Conversation:
         """Create new conversation."""
         return self.conversation_api.new(
             room_type=room_type,
@@ -102,12 +103,12 @@ class NextCloudTalk(NextCloud):
 
     def conversation_get(
             self,
-            room_token: str) -> Conversation:
+            room_token: str) -> api.Conversation:
         """Get a specific conversation."""
         return self.conversation_api.get(
             room_token=room_token)
 
-    def open_conversation_list(self) -> List[Conversation]:
+    def open_conversation_list(self) -> List[api.Conversation]:
         """Returns list of open public Conversations."""
         return self.conversation_api.open_conversation_list()
 

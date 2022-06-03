@@ -1,6 +1,11 @@
 """Classes representing Rich Objects for sharing.
 
 https://github.com/nextcloud/server/blob/master/lib/public/RichObjectStrings/Definitions.php
+
+I don't really understand why most of these exist when they don't
+seem to enforce any kind of argument checking.  You can put in
+whatever you want for 'id' in most of them, and it'll be accepted
+and entered into the chat.
 """
 
 
@@ -82,6 +87,26 @@ class Email(NextCloudTalkRichObject):
 class File(NextCloudTalkRichObject):
 
     object_type = 'file'
+    path = ''
+    link = ''
+
+    def __init__(self, name: str, path: str, link: str):
+        data = {
+            'id': name,
+            'name': name,
+            'path': path,
+            'link': link,
+        }
+        super().__init__(**data)
+
+    @property
+    def metadata(self):
+        return {
+            'id': self.id,
+            'name': self.name,
+            'path': self.path,
+            'link': self.link,
+        }
 
 
 class Form(NextCloudTalkRichObject):
