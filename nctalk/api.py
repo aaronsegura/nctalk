@@ -954,6 +954,7 @@ class Chat(object):
     def __init__(self, token: str, chat_api: 'ChatAPI'):
         self.token = token
         self.api = chat_api
+        self.headers = {}
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__})'
@@ -969,8 +970,8 @@ class Chat(object):
             last_known_message: int = 0,
             last_common_read: int = 0,
             set_read_marker: bool = True,
-            include_last_known: bool = False):
-        return self.api.query(
+            include_last_known: bool = False) -> List['Message']:
+        response = self.api.query(
             method='GET',
             sub=f'/chat/{self.token}',
             data={
@@ -984,6 +985,13 @@ class Chat(object):
             },
             include_headers=['X-Chat-Last-Given', 'X-Chat-Last-Common-Read']
         )
+        self.headers.update(response.get('response_headers', {}))
+        if isinstance(response['element'], dict):
+            return [Message(response['element'], chat_api=self.api)]
+        elif isinstance(response['element'], list):
+            return [Message(x, chat_api=self.api) for x in response['element']]
+        else:
+            raise NextCloudTalkException(f'Unknown return type for response: {response}')
 
     def send(
             self,
