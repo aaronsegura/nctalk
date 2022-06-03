@@ -947,6 +947,14 @@ class Conversation(object):
         """
         return self.chat.clear_history()
 
+    @property
+    def chat_last_given(self):
+        return self.chat.headers['X-Chat-Last-Given']
+
+    @property
+    def chat_last_common_read(self):
+        return self.chat.headers['X-Chat-Last-Common-Read']
+
 
 class Chat(object):
     """Represents a NextCloud Chat Object."""
@@ -999,9 +1007,9 @@ class Chat(object):
             reply_to: int = 0,
             display_name: Union[str, None] = None,
             reference_id: Union[str, None] = None,
-            silent: bool = False):
+            silent: bool = False) -> HTTPResponse:
         """Send a text message to a conversation"""
-        return self.api.query(
+        response = self.api.query(
             method='POST',
             sub=f'/chat/{self.token}',
             data={
@@ -1010,14 +1018,17 @@ class Chat(object):
                 "displayName": display_name,
                 "referenceId": reference_id,
                 "silent": silent
-            }
+            },
+            include_headers=['X-Chat-Last-Common-Read']
         )
+        self.headers.update(response.get('response_headers', {}))
+        return response
 
     def send_rich_object(
             self,
             rich_object: NextCloudTalkRichObject,
             reference_id: Union[str, None] = None,
-            actor_display_name: str = 'Guest'):
+            actor_display_name: str = 'Guest') -> HTTPResponse:
         """Share a rich object to the chat.
 
         https://github.com/nextcloud/server/blob/master/lib/public/RichObjectStrings/Definitions.php
@@ -1058,7 +1069,7 @@ class Chat(object):
         The full message array of the new message, as defined in Receive chat messages
         of a conversation
         """
-        return self.api.query(
+        response = self.api.query(
             method='POST',
             sub=f'/chat/{self.token}/share',
             data={
@@ -1067,10 +1078,13 @@ class Chat(object):
                 'metaData': json.dumps(rich_object.metadata),
                 'actorDisplayName': actor_display_name,
                 'referenceId': reference_id
-            }
+            },
+            include_headers=['X-Chat-Last-Common-Read']
         )
+        self.headers.update(response.get('response_headers', {}))
+        return response
 
-    def clear_history(self):
+    def clear_history(self) -> HTTPResponse:
         """Clear chat history.
 
         Required capability: clear-history
@@ -1095,10 +1109,21 @@ class Chat(object):
         """
         if 'clear-history' not in self.api.client.capabilities:  # type: ignore
             raise NextCloudTalkNotCapable('Server does not support deletion of chat history.')
-        return self.api.query(
+        response = self.api.query(
             method='DELETE',
-            sub=f'/chat/{self.token}'  # type: ignore
+            sub=f'/chat/{self.token}',  # type: ignore
+            include_headers=['X-Chat-Last-Common-Read'],
         )
+        self.headers.update(response.get('response_headers', {}))
+        return response
+
+    @property
+    def chat_last_given(self):
+        return self.headers['X-Chat-Last-Given']
+
+    @property
+    def chat_last_common_read(self):
+        return self.headers['X-Chat-Last-Common-Read']
 
 
 class Participant(object):
