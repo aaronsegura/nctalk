@@ -1010,6 +1010,27 @@ class Conversation(object):
             }
         )
 
+    def share_file(self, *args, **kwargs):
+        """Share a file to the chat.
+
+        Method: POST
+        Endpoint: ocs/v2.php/apps/files_sharing/api/v1/shares
+
+        #### Arguments:
+        path	string	The file path inside the user's root to share
+
+        reference_id	string	A reference string to be able to identify the generated chat
+        message again in a "get messages" request, should be a random sha256 (only available
+        with chat-reference-id capability)
+
+        talkMetaData	[str]	JSON encoded array of the meta data
+
+        #### talkMetaData:
+        messageType [str]   A message type to show the message in different styles. Currently
+        known: `voice-message` and `comment`
+        """
+        return self.chat.share_file(*args, **kwargs)
+
 
 class Chat(object):
     """Represents a NextCloud Chat Object."""
@@ -1078,6 +1099,46 @@ class Chat(object):
         )
         self.headers.update(response.get('response_headers', {}))
         return Message(response, self)
+
+    def share_file(
+            self,
+            path: str,
+            reference_id: Union[str, None] = None,
+            metadata_type: str = 'comment'):
+        """Share a file to the chat.
+
+        Method: POST
+        Endpoint: ocs/v2.php/apps/files_sharing/api/v1/shares
+
+        #### Arguments:
+        path	string	The file path inside the user's root to share
+
+        reference_id	string	A reference string to be able to identify the generated chat
+        message again in a "get messages" request, should be a random sha256 (only available
+        with chat-reference-id capability)
+
+        talkMetaData	[str]	JSON encoded array of the meta data
+
+        #### talkMetaData:
+        messageType [str]   A message type to show the message in different styles. Currently
+        known: `voice-message` and `comment`
+
+        #### Exceptions:
+        403 When path is already shared
+        """
+        self.api.query(
+            method='POST',
+            url=f'{self.api.client.url}/ocs/v2.php/apps/files_sharing/api/v1/shares',
+            data={
+                'shareType': 10,
+                'shareWith': {self.token},
+                'path': path,
+                'reference_id': reference_id,
+                'talkMetaData': json.dumps(
+                    {'messageType': metadata_type}
+                )
+            }
+        )
 
     def send_rich_object(
             self,
