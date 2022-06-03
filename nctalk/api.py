@@ -654,7 +654,7 @@ class Conversation(object):
 
         return ret
 
-    def send(self, **kwargs):
+    def send(self, *args, **kwargs):
         """Sending a new chat message
 
         Method: POST
@@ -696,7 +696,7 @@ class Conversation(object):
                                         has it set to private the value the header is not
                                         set (only available with chat-read-status capability)
         """
-        return self.chat.send(**kwargs)
+        return self.chat.send(*args, **kwargs)
 
     def change_listing_scope(self, scope: str) -> None:
         """Change scope for conversation.
@@ -995,9 +995,9 @@ class Chat(object):
         )
         self.headers.update(response.get('response_headers', {}))
         if isinstance(response['element'], dict):
-            return [Message(response['element'], chat_api=self.api)]
+            return [Message(response['element'], self)]
         elif isinstance(response['element'], list):
-            return [Message(x, chat_api=self.api) for x in response['element']]
+            return [Message(x, self) for x in response['element']]
         else:
             raise NextCloudTalkException(f'Unknown return type for response: {response}')
 
@@ -1007,7 +1007,7 @@ class Chat(object):
             reply_to: int = 0,
             display_name: Union[str, None] = None,
             reference_id: Union[str, None] = None,
-            silent: bool = False) -> HTTPResponse:
+            silent: bool = False) -> 'Message':
         """Send a text message to a conversation"""
         response = self.api.query(
             method='POST',
@@ -1022,7 +1022,7 @@ class Chat(object):
             include_headers=['X-Chat-Last-Common-Read']
         )
         self.headers.update(response.get('response_headers', {}))
-        return response
+        return Message(response, self)
 
     def send_rich_object(
             self,
@@ -1277,13 +1277,61 @@ class Participant(object):
 class Message(object):
     """A NextCloudTalk Message from a Conversation."""
 
-    def __init__(self, data: dict, chat_api: ChatAPI):
+    id = ''
+    message = ''
+
+    def __init__(self, data: dict, chat: Chat):
         self.__dict__.update(data)
-        self.api = chat_api
+        self.chat = chat
 
     def __repr__(self):
         return f'{self.__class__.__name__}({self.__dict__})'
 
     def __str__(self):
         return f'{self.__class__.__name__}'\
-               f'({self.actorId}, {self.room}, {self.displayName})'  # type: ignore
+               f'({self.token}, {self.actorId}, {self.message})'  # type: ignore
+
+    def delete(self) -> HTTPResponse:
+        """Delete a chat message.
+
+        Required capability: delete-messages or rich-object-delete
+        Method: DELETE
+        Endpoint: /chat/{token}/{messageId}
+
+        #### Exceptions:
+        400 Bad Request The message is already older than 6 hours
+        403 Forbidden When the message is not from the current user and the user not a
+        moderator
+        403 Forbidden When the conversation is read-only
+        404 Not Found When the conversation or chat message could not be found for the
+        participant
+        405 Method Not Allowed When the message is not a normal chat message
+        412 Precondition Failed When the lobby is active and the user is not a moderator
+
+        #### Response Header:
+        X-Chat-Last-Common-Read	[int]	ID of the last message read by every user that has read
+        privacy set to public. When the user themself has it set to private the value the
+        header is not set (only available with chat-read-status capability)
+
+        #### Response Data:
+        The full message array of the new system message "You deleted a message", as defined in
+        Receive chat messages of a conversation The parent message is the object of the deleted
+        message with the replaced text "Message deleted by you". This message should NOT be
+        displayed to the user but instead be used to remove the original message from any
+        cache/storage of the device.
+        """
+        if self.message == r'{object}':
+            if 'rich-object-delete' not in self.chat.api.client.capabilities:  # type: ignore
+                raise NextCloudTalkNotCapable(
+                    'Server does not support deletion of rich objects.')
+        else:
+            if 'delete-messages' not in self.chat.api.client.capabilities:  # type: ignore
+                raise NextCloudTalkNotCapable('Server does not support message deletion.')
+
+        response = self.chat.api.query(
+            method='DELETE',
+            sub=f'/chat/{self.chat.token}/{self.id}',
+            include_headers=['X-Chat-Last-Common-Read']
+        )
+        self.chat.headers.update(response['response_headers'])
+        return response
