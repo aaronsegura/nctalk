@@ -9,7 +9,7 @@ from typing import List
 from requests.auth import HTTPBasicAuth
 from nextcloud import NextCloud
 
-from .exceptions import NextCloudTalkException
+from .exceptions import NextCloudTalkException, NextCloudTalkUnauthorized
 
 from . import api
 
@@ -75,9 +75,12 @@ class NextCloudTalk(NextCloud):
         # before making session requests you get {"message":"CSRF check failed"}
         # errors.
         self.user_data = self.get_user().json_data  # type: ignore
-        self.__populate_caches()
 
-        self.conversation_api = api.ConversationAPI(self)
+        if 'ocs' in self.user_data:
+            data = self.user_data['ocs']['meta']
+            raise NextCloudTalkUnauthorized(f'[{data["statuscode"]}] {data["message"]}')
+
+        self.__conversation_api = None
 
     def conversation_list(
             self,
@@ -119,10 +122,13 @@ class NextCloudTalk(NextCloud):
             url=self.url + '/ocs/v1.php/cloud/capabilities'
         )
         data = json.loads(json.dumps(xmltodict.parse(request.content)))
-        self.__capabilities = \
-            data['ocs']['data']['capabilities']['spreed']['features']['element']
-        self.__config = data['ocs']['data']['capabilities']['spreed']['config']
-        self.__server_version = data['ocs']['data']['version']['string']
+        try:
+            self.__capabilities = \
+                data['ocs']['data']['capabilities']['spreed']['features']['element']
+            self.__config = data['ocs']['data']['capabilities']['spreed']['config']
+            self.__server_version = data['ocs']['data']['version']['string']
+        except TypeError:
+            raise NextCloudTalkException("Unable to populate caches")
 
     @property
     def capabilities(self) -> List[str]:
@@ -144,3 +150,10 @@ class NextCloudTalk(NextCloud):
         if not self.__server_version:
             self.__populate_caches()
         return self.__server_version
+
+    @property
+    def conversation_api(self) -> api.ConversationAPI:
+        """Return the Conversation API"""
+        if not self.__conversation_api:
+            self.__conversation_api = api.ConversationAPI(self)
+        return self.__conversation_api
