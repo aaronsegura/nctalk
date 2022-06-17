@@ -3,7 +3,7 @@
 import xmltodict
 import json
 
-from typing import Union, List
+from typing import Union, List, Dict, Any
 from nextcloud import NextCloud
 from urllib.parse import urlencode
 from urllib3 import HTTPResponse
@@ -47,12 +47,14 @@ class NextCloudTalkAPI(object):
             url_data = urlencode(data)
             request = self.client.session.request(
                 url=f'{url}{sub}?{url_data}' if url else f'{self.endpoint}{sub}?{url_data}',
-                method=method)
+                method=method,
+                headers={'OCS-APIRequest': 'true'})
         else:
             request = self.client.session.request(
                 url=f'{url}{sub}' if url else f'{self.endpoint}{sub}',
                 method=method,
-                data=data)
+                data=data,
+                headers={'OCS-APIRequest': 'true'})
 
         if request.ok:
             # Convert OrderedDict from xmltodict.parse to regular dict.
@@ -922,7 +924,7 @@ class Conversation(object):
         """
         return self.chat.send_rich_object(*args, **kwargs)
 
-    def clear_history(self) -> HTTPResponse:
+    def clear_history(self) -> Dict[Any, Any]:
         """Clear chat history.
 
         Required capability: clear-history
@@ -1144,7 +1146,7 @@ class Chat(object):
             self,
             rich_object: NextCloudTalkRichObject,
             reference_id: Union[str, None] = None,
-            actor_display_name: str = 'Guest') -> HTTPResponse:
+            actor_display_name: str = 'Guest') -> Dict[Any, Any]:
         """Share a rich object to the chat.
 
         https://github.com/nextcloud/server/blob/master/lib/public/RichObjectStrings/Definitions.php
@@ -1200,7 +1202,7 @@ class Chat(object):
         self.headers.update(response.get('response_headers', {}))
         return response
 
-    def clear_history(self) -> HTTPResponse:
+    def clear_history(self) -> Dict[Any, Any]:
         """Clear chat history.
 
         Required capability: clear-history
@@ -1407,7 +1409,7 @@ class Message(object):
         return f'{self.__class__.__name__}'\
                f'({self.token}, {self.actorId}, {self.message})'  # type: ignore
 
-    def delete(self) -> HTTPResponse:
+    def delete(self) -> Dict[Any, Any]:
         """Delete a chat message.
 
         Required capability: delete-messages or rich-object-delete
@@ -1452,7 +1454,7 @@ class Message(object):
         self.chat.headers.update(response['response_headers'])
         return response
 
-    def mark_read(self) -> HTTPResponse:
+    def mark_read(self) -> Dict[Any, Any]:
         """Mark chat as read.
 
         Required capability: chat-read-marker
@@ -1480,7 +1482,7 @@ class Message(object):
         self.chat.headers.update(response.get('response_headers', {}))
         return response
 
-    def mark_unread(self):
+    def mark_unread(self) -> Dict[Any, Any]:
         """Mark chat as unread.
 
         Required capability: chat-unread

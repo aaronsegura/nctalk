@@ -7,9 +7,10 @@ import importlib.metadata
 from typing import List
 
 from requests.auth import HTTPBasicAuth
+
 from nextcloud import NextCloud
 
-from .exceptions import NextCloudTalkException, NextCloudTalkUnauthorized
+from .exceptions import NextCloudTalkException
 
 from . import api
 
@@ -71,15 +72,6 @@ class NextCloudTalk(NextCloud):
         else:
             raise NextCloudTalkException("Incomplete credentials presented.")
 
-        # get_user() in order to make this work.  If you don't get_user()
-        # before making session requests you get {"message":"CSRF check failed"}
-        # errors.
-        self.user_data = self.get_user().json_data  # type: ignore
-
-        if 'ocs' in self.user_data:
-            data = self.user_data['ocs']['meta']
-            raise NextCloudTalkUnauthorized(f'[{data["statuscode"]}] {data["message"]}')
-
         self.__conversation_api = None
 
     def conversation_list(
@@ -115,12 +107,13 @@ class NextCloudTalk(NextCloud):
         """Returns list of open public Conversations."""
         return self.conversation_api.open_conversation_list()
 
-    def __populate_caches(self) -> None:
+    def populate_caches(self) -> None:
         """Populate the __capabilities and __config caches."""
         request = self.session.request(
             method='GET',
-            url=self.url + '/ocs/v1.php/cloud/capabilities'
-        )
+            url=self.url + '/ocs/v1.php/cloud/capabilities',
+            headers={'OCS-APIRequest': 'true'})
+
         data = json.loads(json.dumps(xmltodict.parse(request.content)))
         try:
             self.__capabilities = \
@@ -134,21 +127,21 @@ class NextCloudTalk(NextCloud):
     def capabilities(self) -> List[str]:
         """Return list of advertised Talk capabilities."""
         if not self.__capabilities:
-            self.__populate_caches()
+            self.populate_caches()
         return self.__capabilities
 
     @property
     def config(self) -> dict:
         """Return Talk-related config.php variables."""
         if not self.__config:
-            self.__populate_caches()
+            self.populate_caches()
         return self.__config
 
     @property
     def server_version(self) -> str:
         """Return server version string."""
         if not self.__server_version:
-            self.__populate_caches()
+            self.populate_caches()
         return self.__server_version
 
     @property
