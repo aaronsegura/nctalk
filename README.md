@@ -1,4 +1,11 @@
 ## Nextcloud Talk Client Module
+
+### DEPRECATED
+    
+This project is deprecated in favor of [aaronsegura/nextcloud-async](https://github.com/aaronsegura/nextcloud-async)
+
+-----
+
 ######
 
 This project is not endorsed or recognized in any way by the NextCloud project.
